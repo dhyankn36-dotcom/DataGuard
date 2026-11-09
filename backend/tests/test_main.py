@@ -6,6 +6,107 @@ from fastapi.testclient import TestClient
 import main
 
 
+def test_clean_export_fills_missing_values_and_removes_duplicates(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    original = b"score,group\n1,a\n,\n5,c\n7,c\n7,c\n"
+    upload = client.post(
+        "/api/datasets/upload",
+        files={"file": ("sample.csv", original, "text/csv")},
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    response = client.get(
+        f"/api/datasets/{dataset_id}/cleaned"
+        "?missing_strategy=fill_median_mode&remove_duplicates=true"
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert f"dataguard-cleaned-{dataset_id}.csv" in response.headers[
+        "content-disposition"
+    ]
+    assert response.headers["X-DataGuard-Original-Rows"] == "5"
+    assert response.headers["X-DataGuard-Exported-Rows"] == "4"
+    assert response.headers["X-DataGuard-Removed-Incomplete-Rows"] == "0"
+    assert response.headers["X-DataGuard-Removed-Duplicate-Rows"] == "1"
+    assert response.headers["X-DataGuard-Filled-Values"] == "2"
+    cleaned = pd.read_csv(BytesIO(response.content))
+    assert cleaned.to_dict(orient="records") == [
+        {"score": 1.0, "group": "a"},
+        {"score": 6.0, "group": "c"},
+        {"score": 5.0, "group": "c"},
+        {"score": 7.0, "group": "c"},
+    ]
+    assert (tmp_path / f"{dataset_id}.csv").read_bytes() == original
+
+
+def test_clean_export_can_drop_incomplete_rows(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={
+            "file": (
+                "sample.csv",
+                b"name,age\nAda,36\nGrace,\n",
+                "text/csv",
+            )
+        },
+    )
+
+    response = client.get(
+        f"/api/datasets/{upload.json()['dataset_id']}/cleaned"
+        "?missing_strategy=drop_rows"
+    )
+
+    assert response.status_code == 200
+    assert response.headers["X-DataGuard-Exported-Rows"] == "1"
+    assert response.headers["X-DataGuard-Removed-Incomplete-Rows"] == "1"
+    assert response.headers["X-DataGuard-Filled-Values"] == "0"
+    assert pd.read_csv(BytesIO(response.content)).to_dict(orient="records") == [
+        {"name": "Ada", "age": 36}
+    ]
+
+
+def test_clean_export_leaves_all_empty_columns_unfilled(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={
+            "file": (
+                "sample.csv",
+                b"score,notes\n1,\n3,\n",
+                "text/csv",
+            )
+        },
+    )
+
+    response = client.get(
+        f"/api/datasets/{upload.json()['dataset_id']}/cleaned"
+        "?missing_strategy=fill_median_mode"
+    )
+
+    assert response.status_code == 200
+    assert response.headers["X-DataGuard-Filled-Values"] == "0"
+    cleaned = pd.read_csv(BytesIO(response.content))
+    assert cleaned["notes"].isna().all()
+
+
+def test_clean_export_rejects_unknown_missing_strategy():
+    client = TestClient(main.app)
+
+    response = client.get(
+        "/api/datasets/00000000-0000-0000-0000-000000000000/cleaned"
+        "?missing_strategy=guess"
+    )
+
+    assert response.status_code == 422
+
+
 def test_upload_dataset_saves_valid_csv(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
     client = TestClient(main.app)

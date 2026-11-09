@@ -171,6 +171,18 @@ th:first-child, td:first-child { padding-left: 18px; }
 .pagination-button { min-height: 28px; padding: 0 10px; border: 1px solid #e4e9ef; border-radius: 5px; background: #fff; color: #586477; font-size: 9px; }
 .pagination-button:hover:not(:disabled) { border-color: #9accc4; color: var(--teal-dark); }
 .pagination-button:disabled { cursor: default; opacity: .45; }
+.clean-export-panel { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; padding: 16px 18px 12px; }
+.clean-export-copy { display: flex; align-items: center; gap: 10px; }
+.clean-export-icon { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 8px; background: var(--teal-soft); color: var(--teal); font-size: 16px; }
+.clean-export-copy h2 { margin: 0 0 4px; font: 700 11px Manrope, sans-serif; }
+.clean-export-copy p { margin: 0; color: #929cab; font-size: 9px; }
+.clean-export-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.clean-select-label { color: #7e8999; font-size: 9px; }
+.clean-select { min-height: 32px; max-width: 190px; padding: 0 8px; border: 1px solid #e4e9ef; border-radius: 6px; background: #fff; color: #4f5b6e; font-size: 9px; }
+.checkbox-label { display: flex; align-items: center; gap: 6px; color: #657184; font-size: 9px; }
+.checkbox-label input { accent-color: var(--teal); }
+.clean-export-controls .button { min-height: 32px; font-size: 9px; }
+.clean-export-note { flex-basis: 100%; margin: -7px 0 0 42px; color: #9aa4b2; font-size: 8px; }
 .footer { display: flex; justify-content: space-between; margin-top: 40px; padding: 14px 0 20px; border-top: 1px solid var(--line); color: #9aa4b2; font-size: 9px; }
 .footer span:first-child { color: #778397; font-weight: 700; }
 [hidden] { display: none !important; }
@@ -201,6 +213,9 @@ th:first-child, td:first-child { padding-left: 18px; }
   .content-grid { grid-template-columns: 1fr; }
   .dataset-title-row { align-items: flex-start; flex-direction: column; }
   .dataset-actions { width: 100%; }
+  .clean-export-controls { width: 100%; }
+  .clean-select { max-width: none; flex: 1 1 180px; }
+  .clean-export-note { margin-left: 0; }
   .view-switch { align-self: stretch; }
   .view-tab { flex: 1; }
   .panel-heading { padding-right: 12px; padding-left: 12px; }

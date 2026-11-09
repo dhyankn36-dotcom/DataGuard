@@ -164,6 +164,30 @@
               </div>
             </div>
           </section>
+
+          <section class="panel clean-export-panel" aria-labelledby="clean-export-title">
+            <div class="clean-export-copy">
+              <span class="clean-export-icon" aria-hidden="true">↗</span>
+              <div>
+                <h2 id="clean-export-title">Prepare a clean copy</h2>
+                <p>Download a transformed CSV. Your original dataset stays unchanged.</p>
+              </div>
+            </div>
+            <div class="clean-export-controls">
+              <label class="clean-select-label" for="missing-strategy">Missing values</label>
+              <select id="missing-strategy" class="clean-select">
+                <option value="keep">Leave as-is</option>
+                <option value="drop_rows">Remove incomplete rows</option>
+                <option value="fill_median_mode">Fill with median / most common</option>
+              </select>
+              <label class="checkbox-label">
+                <input id="remove-duplicates" type="checkbox">
+                <span>Remove duplicate rows</span>
+              </label>
+              <button id="clean-export-button" class="button button-primary" type="button">Download clean CSV</button>
+            </div>
+            <p id="clean-export-note" class="clean-export-note">Cleaning is applied only to the downloaded copy.</p>
+          </section>
         </section>
         <footer class="footer"><span>DataGuard</span><span>Make every dataset count.</span></footer>
       </main>

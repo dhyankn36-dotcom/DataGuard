@@ -2,13 +2,14 @@ import json
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
+from typing import Literal
 import uuid
 
 import pandas as pd
 from app.services.profiling import profile_dataset
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -68,6 +69,49 @@ def read_dataset(file_path: Path, **options) -> pd.DataFrame:
     if file_path.suffix.lower() == ".csv":
         return pd.read_csv(file_path, **options)
     return pd.read_excel(file_path, **options)
+
+
+def prepare_cleaned_dataset(
+    dataframe: pd.DataFrame,
+    missing_strategy: str,
+    remove_duplicates: bool,
+) -> tuple[pd.DataFrame, int, int, int]:
+    cleaned = dataframe.copy()
+    removed_incomplete_rows = 0
+    filled_values = 0
+
+    if missing_strategy == "drop_rows":
+        rows_before = len(cleaned)
+        cleaned = cleaned.dropna()
+        removed_incomplete_rows = rows_before - len(cleaned)
+    elif missing_strategy == "fill_median_mode":
+        missing_before = int(cleaned.isna().sum().sum())
+        for column in cleaned.columns:
+            series = cleaned[column]
+            if not series.isna().any():
+                continue
+
+            if pd.api.types.is_numeric_dtype(series):
+                finite_values = series[
+                    series.notna()
+                    & series.ne(float("inf"))
+                    & series.ne(float("-inf"))
+                ]
+                fill_value = finite_values.median() if not finite_values.empty else None
+            else:
+                modes = series.mode(dropna=True)
+                fill_value = modes.iloc[0] if not modes.empty else None
+
+            if fill_value is not None:
+                cleaned[column] = series.fillna(fill_value)
+        filled_values = missing_before - int(cleaned.isna().sum().sum())
+
+    duplicates_before = len(cleaned)
+    if remove_duplicates:
+        cleaned = cleaned.drop_duplicates()
+    removed_duplicate_rows = duplicates_before - len(cleaned)
+
+    return cleaned, removed_incomplete_rows, removed_duplicate_rows, filled_values
 
 
 @app.get("/api/datasets")
@@ -241,4 +285,47 @@ def download_dataset_report(dataset_id: str):
         raise HTTPException(
             status_code=400,
             detail="Could not generate a report for this dataset.",
+        )
+
+
+@app.get("/api/datasets/{dataset_id}/cleaned")
+def download_cleaned_dataset(
+    dataset_id: str,
+    missing_strategy: Literal["keep", "drop_rows", "fill_median_mode"] = "keep",
+    remove_duplicates: bool = False,
+):
+    file_path = find_dataset(dataset_id)
+    try:
+        dataframe = read_dataset(file_path)
+        (
+            cleaned,
+            removed_incomplete_rows,
+            removed_duplicate_rows,
+            filled_values,
+        ) = (
+            prepare_cleaned_dataset(
+                dataframe,
+                missing_strategy,
+                remove_duplicates,
+            )
+        )
+        headers = {
+            "Content-Disposition": (
+                f'attachment; filename="dataguard-cleaned-{dataset_id}.csv"'
+            ),
+            "X-DataGuard-Original-Rows": str(len(dataframe)),
+            "X-DataGuard-Exported-Rows": str(len(cleaned)),
+            "X-DataGuard-Removed-Incomplete-Rows": str(removed_incomplete_rows),
+            "X-DataGuard-Removed-Duplicate-Rows": str(removed_duplicate_rows),
+            "X-DataGuard-Filled-Values": str(filled_values),
+        }
+        return Response(
+            content=cleaned.to_csv(index=False, na_rep=""),
+            media_type="text/csv",
+            headers=headers,
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not create a cleaned export for this dataset.",
         )

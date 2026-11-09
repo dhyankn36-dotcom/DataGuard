@@ -335,6 +335,51 @@ async function changePreviewPage(offset) {
   }
 }
 
+async function downloadCleanedDataset() {
+  const button = document.querySelector("#clean-export-button");
+  const datasetId = state.activeId;
+  if (!datasetId) return;
+
+  button.disabled = true;
+  clearNotice();
+  try {
+    const params = new URLSearchParams({
+      missing_strategy: document.querySelector("#missing-strategy").value,
+      remove_duplicates: String(document.querySelector("#remove-duplicates").checked),
+    });
+    const response = await fetch(
+      `/api/datasets/${encodeURIComponent(datasetId)}/cleaned?${params}`,
+    );
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      throw new Error(result.detail || `Export failed (${response.status}).`);
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = `dataguard-cleaned-${datasetId}.csv`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
+
+    const removedRows = Number(response.headers.get("X-DataGuard-Removed-Incomplete-Rows") || 0);
+    const removedDuplicates = Number(response.headers.get("X-DataGuard-Removed-Duplicate-Rows") || 0);
+    const filledValues = Number(response.headers.get("X-DataGuard-Filled-Values") || 0);
+    showNotice(
+      `Clean CSV downloaded. Filled ${formatNumber(filledValues)} values, removed ${formatNumber(removedRows)} incomplete rows, and removed ${formatNumber(removedDuplicates)} duplicate rows.`,
+      true,
+    );
+    setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+  } catch (error) {
+    showNotice(error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function uploadFile(file) {
   if (!file) return;
   clearNotice();
@@ -404,6 +449,7 @@ elements.dropZone.addEventListener("drop", (event) => {
 });
 document.querySelector("#column-search").addEventListener("input", renderColumns);
 document.querySelector("#delete-dataset").addEventListener("click", deleteActiveDataset);
+document.querySelector("#clean-export-button").addEventListener("click", downloadCleanedDataset);
 document.querySelector("#preview-previous").addEventListener("click", () => {
   changePreviewPage(Math.max(0, state.previewOffset - state.previewPageSize));
 });
