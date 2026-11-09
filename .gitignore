@@ -3,4 +3,3 @@ __pycache__/
 *.py[cod]
 
 datasets/*
-!datasets/sample_data.csv
