@@ -151,10 +151,17 @@
           <section id="preview-view" class="panel preview-panel" hidden>
             <div class="panel-heading">
               <div><h2>Data preview</h2><p id="preview-caption">A sample of the first rows in this dataset.</p></div>
-              <span class="preview-limit">First 100 rows</span>
+              <span class="preview-limit">100 rows per page</span>
             </div>
             <div class="table-scroll">
               <table><thead id="preview-head"></thead><tbody id="preview-rows"></tbody></table>
+            </div>
+            <div class="preview-pagination">
+              <span id="preview-page-label" class="preview-page-label"></span>
+              <div class="pagination-actions">
+                <button id="preview-previous" class="pagination-button" type="button" disabled>Previous</button>
+                <button id="preview-next" class="pagination-button" type="button">Next</button>
+              </div>
             </div>
           </section>
         </section>

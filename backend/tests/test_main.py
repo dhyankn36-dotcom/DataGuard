@@ -52,7 +52,7 @@ def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):
 
     listing = client.get("/api/datasets")
     profile = client.get(f"/api/datasets/{dataset_id}/profile")
-    preview = client.get(f"/api/datasets/{dataset_id}/preview?limit=1")
+    preview = client.get(f"/api/datasets/{dataset_id}/preview?limit=1&offset=1")
 
     assert listing.status_code == 200
     assert listing.json()["datasets"][0]["dataset_id"] == dataset_id
@@ -60,7 +60,42 @@ def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):
     assert profile.json()["profile"]["total_missing_values"] == 1
     assert preview.status_code == 200
     assert preview.json()["columns"] == ["name", "age"]
-    assert preview.json()["rows"] == [{"name": "Ada", "age": 36}]
+    assert preview.json()["rows"] == [{"name": "Grace", "age": None}]
+    assert preview.json()["offset"] == 1
+    assert preview.json()["has_more"] is False
+
+
+def test_preview_paginates_xlsx_rows(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    workbook = BytesIO()
+    pd.DataFrame({"name": ["Ada", "Grace", "Lin"], "age": [36, 45, 28]}).to_excel(
+        workbook,
+        index=False,
+    )
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={"file": ("sample.xlsx", workbook.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    response = client.get(
+        f"/api/datasets/{dataset_id}/preview?limit=1&offset=1"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["rows"] == [{"name": "Grace", "age": 45}]
+    assert response.json()["has_more"] is True
+
+
+def test_preview_rejects_excessive_offset():
+    client = TestClient(main.app)
+
+    response = client.get(
+        "/api/datasets/00000000-0000-0000-0000-000000000000/preview?offset=1000001"
+    )
+
+    assert response.status_code == 422
 
 
 def test_download_report_includes_dataset_metadata_and_profile(

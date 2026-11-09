@@ -165,6 +165,12 @@ th:first-child, td:first-child { padding-left: 18px; }
 .preview-panel { margin-bottom: 20px; }
 .preview-limit { color: #96a0ad; font-size: 9px; white-space: nowrap; }
 .preview-panel td { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
+.preview-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 16px; border-top: 1px solid #f0f2f5; }
+.preview-page-label { color: #8792a2; font-size: 9px; }
+.pagination-actions { display: flex; gap: 6px; }
+.pagination-button { min-height: 28px; padding: 0 10px; border: 1px solid #e4e9ef; border-radius: 5px; background: #fff; color: #586477; font-size: 9px; }
+.pagination-button:hover:not(:disabled) { border-color: #9accc4; color: var(--teal-dark); }
+.pagination-button:disabled { cursor: default; opacity: .45; }
 .footer { display: flex; justify-content: space-between; margin-top: 40px; padding: 14px 0 20px; border-top: 1px solid var(--line); color: #9aa4b2; font-size: 9px; }
 .footer span:first-child { color: #778397; font-weight: 700; }
 [hidden] { display: none !important; }

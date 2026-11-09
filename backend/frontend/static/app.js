@@ -3,6 +3,8 @@ const state = {
   activeId: null,
   profile: null,
   columns: [],
+  previewOffset: 0,
+  previewPageSize: 100,
 };
 
 const elements = {
@@ -107,6 +109,7 @@ function renderDatasetList() {
 
 async function selectDataset(datasetId) {
   state.activeId = datasetId;
+  state.previewOffset = 0;
   clearNotice();
   elements.emptyState.hidden = true;
   elements.dashboard.hidden = false;
@@ -288,10 +291,11 @@ async function deleteActiveDataset() {
   }
 }
 
-async function renderPreview() {
+async function renderPreview(offset = state.previewOffset) {
   const result = await requestJson(
-    `/api/datasets/${encodeURIComponent(state.activeId)}/preview?limit=100`,
+    `/api/datasets/${encodeURIComponent(state.activeId)}/preview?limit=${state.previewPageSize}&offset=${offset}`,
   );
+  state.previewOffset = result.offset;
   const head = document.querySelector("#preview-head");
   const body = document.querySelector("#preview-rows");
   head.replaceChildren();
@@ -315,7 +319,20 @@ async function renderPreview() {
     body.append(row);
   }
   document.querySelector("#preview-caption").textContent =
-    `Showing ${formatNumber(result.rows.length)} of ${formatNumber(state.profile.total_rows)} rows.`;
+    `Rows ${formatNumber(result.rows.length ? result.offset + 1 : 0)}–${formatNumber(result.offset + result.rows.length)} of ${formatNumber(state.profile.total_rows)}.`;
+  document.querySelector("#preview-page-label").textContent =
+    `Page ${formatNumber(Math.floor(result.offset / result.limit) + 1)}`;
+  document.querySelector("#preview-previous").disabled = result.offset === 0;
+  document.querySelector("#preview-next").disabled =
+    !result.has_more || result.offset + result.rows.length >= state.profile.total_rows;
+}
+
+async function changePreviewPage(offset) {
+  try {
+    await renderPreview(offset);
+  } catch (error) {
+    showNotice(error.message);
+  }
 }
 
 async function uploadFile(file) {
@@ -387,6 +404,12 @@ elements.dropZone.addEventListener("drop", (event) => {
 });
 document.querySelector("#column-search").addEventListener("input", renderColumns);
 document.querySelector("#delete-dataset").addEventListener("click", deleteActiveDataset);
+document.querySelector("#preview-previous").addEventListener("click", () => {
+  changePreviewPage(Math.max(0, state.previewOffset - state.previewPageSize));
+});
+document.querySelector("#preview-next").addEventListener("click", () => {
+  changePreviewPage(state.previewOffset + state.previewPageSize);
+});
 elements.profileTab.addEventListener("click", () => {
   elements.profileTab.classList.add("active");
   elements.previewTab.classList.remove("active");

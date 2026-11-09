@@ -167,16 +167,25 @@ async def upload_dataset(file: UploadFile = File(...)):
 def preview_dataset(
     dataset_id: str,
     limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0, le=1_000_000),
 ):
     file_path = find_dataset(dataset_id)
     try:
-        dataframe = read_dataset(file_path, nrows=limit)
-        rows = json.loads(dataframe.to_json(orient="records", date_format="iso"))
+        dataframe = read_dataset(
+            file_path,
+            nrows=limit + 1,
+            skiprows=range(1, offset + 1),
+        )
+        has_more = len(dataframe) > limit
+        page = dataframe.iloc[:limit]
+        rows = json.loads(page.to_json(orient="records", date_format="iso"))
         return {
             "dataset_id": str(uuid.UUID(dataset_id)),
-            "columns": dataframe.columns.tolist(),
+            "columns": page.columns.tolist(),
             "rows": rows,
             "limit": limit,
+            "offset": offset,
+            "has_more": has_more,
         }
     except Exception:
         raise HTTPException(
