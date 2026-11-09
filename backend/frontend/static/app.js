@@ -215,6 +215,19 @@ function renderInsights(profile) {
     });
   }
   for (const column of state.columns) {
+    if (column.is_empty) {
+      insights.push({
+        title: `${column.name} is entirely empty`,
+        detail: "This column has no values and may be safe to remove.",
+        good: false,
+      });
+    } else if (column.is_constant) {
+      insights.push({
+        title: `${column.name} has one distinct value`,
+        detail: "A constant column may not add useful analysis.",
+        good: false,
+      });
+    }
     if (column.non_finite_values > 0) {
       insights.push({
         title: `${formatNumber(column.non_finite_values)} non-finite values`,
@@ -251,6 +264,25 @@ function renderInsights(profile) {
     content.append(title, detail);
     item.append(marker, content);
     container.append(item);
+  }
+}
+
+async function deleteActiveDataset() {
+  const dataset = state.datasets.find((item) => item.dataset_id === state.activeId);
+  if (!dataset || !window.confirm(`Delete "${dataset.filename}"? This cannot be undone.`)) {
+    return;
+  }
+
+  clearNotice();
+  try {
+    await requestJson(`/api/datasets/${encodeURIComponent(dataset.dataset_id)}`, {
+      method: "DELETE",
+    });
+    state.activeId = null;
+    await loadDatasets();
+    showNotice(`${dataset.filename} was deleted.`, true);
+  } catch (error) {
+    showNotice(error.message);
   }
 }
 
@@ -352,6 +384,7 @@ elements.dropZone.addEventListener("drop", (event) => {
   uploadFile(event.dataTransfer.files[0]);
 });
 document.querySelector("#column-search").addEventListener("input", renderColumns);
+document.querySelector("#delete-dataset").addEventListener("click", deleteActiveDataset);
 elements.profileTab.addEventListener("click", () => {
   elements.profileTab.classList.add("active");
   elements.previewTab.classList.remove("active");

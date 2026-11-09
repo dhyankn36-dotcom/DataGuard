@@ -22,6 +22,10 @@ def profile_dataset(df: pd.DataFrame):
             "unique_values": int(series.nunique()),
             "duplicate_values": int(series.duplicated().sum())
         }
+        column_info["is_empty"] = total_rows > 0 and missing == total_rows
+        column_info["is_constant"] = (
+            not column_info["is_empty"] and column_info["unique_values"] == 1
+        )
 
         if pd.api.types.is_numeric_dtype(series):
             non_finite = int(series.isin([float("inf"), float("-inf")]).sum())

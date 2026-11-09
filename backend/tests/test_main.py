@@ -63,6 +63,52 @@ def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):
     assert preview.json()["rows"] == [{"name": "Ada", "age": 36}]
 
 
+def test_delete_dataset_removes_uploaded_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={"file": ("sample.csv", b"name\nAda\n", "text/csv")},
+    )
+    dataset_id = upload.json()["dataset_id"]
+    uploaded_file = tmp_path / f"{dataset_id}.csv"
+
+    response = client.delete(f"/api/datasets/{dataset_id}")
+
+    assert response.status_code == 200
+    assert response.json()["dataset_id"] == dataset_id
+    assert not uploaded_file.exists()
+    assert client.get(f"/api/datasets/{dataset_id}/profile").status_code == 404
+
+
+def test_delete_dataset_rejects_invalid_and_unknown_ids():
+    client = TestClient(main.app)
+
+    invalid = client.delete("/api/datasets/not-a-uuid")
+    unknown = client.delete(
+        "/api/datasets/00000000-0000-0000-0000-000000000000"
+    )
+
+    assert invalid.status_code == 400
+    assert unknown.status_code == 404
+
+
+def test_profile_marks_empty_and_constant_columns():
+    dataframe = pd.DataFrame({
+        "empty": [None, None],
+        "constant": ["same", "same"],
+        "varied": ["first", "second"],
+    })
+
+    profile = main.profile_dataset(dataframe)
+
+    assert profile["columns"]["empty"]["is_empty"] is True
+    assert profile["columns"]["empty"]["is_constant"] is False
+    assert profile["columns"]["constant"]["is_empty"] is False
+    assert profile["columns"]["constant"]["is_constant"] is True
+    assert profile["columns"]["varied"]["is_constant"] is False
+
+
 def test_profile_handles_infinite_numeric_values(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
     client = TestClient(main.app)

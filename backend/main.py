@@ -93,6 +93,16 @@ def list_datasets():
     return {"datasets": datasets}
 
 
+@app.delete("/api/datasets/{dataset_id}")
+def delete_dataset(dataset_id: str):
+    file_path = find_dataset(dataset_id)
+    file_path.unlink()
+    return {
+        "message": "Dataset deleted successfully",
+        "dataset_id": str(uuid.UUID(dataset_id)),
+    }
+
+
 @app.post("/api/datasets/upload")
 async def upload_dataset(file: UploadFile = File(...)):
     extension = Path(file.filename or "").suffix.lower()

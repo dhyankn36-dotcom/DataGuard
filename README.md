@@ -26,6 +26,7 @@ Dataset files and Python virtual environments are excluded from Git.
 
 - `GET /api/datasets` — list datasets stored by the API.
 - `POST /api/datasets/upload` — upload a CSV or XLSX file (`file` form field).
+- `DELETE /api/datasets/{dataset_id}` — permanently delete an uploaded dataset.
 - `GET /api/datasets/{dataset_id}/profile` — retrieve the quality profile.
 - `GET /api/datasets/{dataset_id}/preview?limit=100` — preview up to 1,000 rows.
 - `GET /health` — check API health.
