@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 import uuid
@@ -7,7 +8,7 @@ import pandas as pd
 from app.services.profiling import profile_dataset
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -201,4 +202,34 @@ def get_dataset_profile(dataset_id: str):
         raise HTTPException(
             status_code=400,
             detail="Could not profile this dataset."
+        )
+
+
+@app.get("/api/datasets/{dataset_id}/report")
+def download_dataset_report(dataset_id: str):
+    file_path = find_dataset(dataset_id)
+    try:
+        dataframe = read_dataset(file_path)
+        report = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "dataset": {
+                "dataset_id": str(uuid.UUID(dataset_id)),
+                "filename": file_path.name,
+                "rows": len(dataframe),
+                "columns": len(dataframe.columns),
+            },
+            "profile": profile_dataset(dataframe),
+        }
+        return JSONResponse(
+            content=report,
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="dataguard-report-{dataset_id}.json"'
+                )
+            },
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not generate a report for this dataset.",
         )

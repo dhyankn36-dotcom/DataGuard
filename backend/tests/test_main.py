@@ -63,6 +63,41 @@ def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):
     assert preview.json()["rows"] == [{"name": "Ada", "age": 36}]
 
 
+def test_download_report_includes_dataset_metadata_and_profile(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={
+            "file": (
+                "sample.csv",
+                b"name,age\nAda,36\nGrace,\n",
+                "text/csv",
+            )
+        },
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    response = client.get(f"/api/datasets/{dataset_id}/report")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    assert f"dataguard-report-{dataset_id}.json" in response.headers[
+        "content-disposition"
+    ]
+    report = response.json()
+    assert report["dataset"] == {
+        "dataset_id": dataset_id,
+        "filename": f"{dataset_id}.csv",
+        "rows": 2,
+        "columns": 2,
+    }
+    assert report["profile"]["total_missing_values"] == 1
+    assert report["generated_at"].endswith("+00:00")
+
+
 def test_delete_dataset_removes_uploaded_file(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
     client = TestClient(main.app)
