@@ -63,6 +63,34 @@ def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):
     assert preview.json()["rows"] == [{"name": "Ada", "age": 36}]
 
 
+def test_profile_handles_infinite_numeric_values(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={
+            "file": (
+                "infinite.csv",
+                b"value\ninf\n-inf\n1\n2\n3\n4\n",
+                "text/csv",
+            )
+        },
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    response = client.get(f"/api/datasets/{dataset_id}/profile")
+
+    assert response.status_code == 200
+    numeric_column = response.json()["profile"]["columns"]["value"]
+    assert numeric_column["non_finite_values"] == 2
+    assert numeric_column["statistics"] == {
+        "mean": 2.5,
+        "median": 2.5,
+        "minimum": 1.0,
+        "maximum": 4.0,
+    }
+
+
 def test_upload_dataset_accepts_xlsx(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
     workbook = BytesIO()

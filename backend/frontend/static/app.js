@@ -215,6 +215,13 @@ function renderInsights(profile) {
     });
   }
   for (const column of state.columns) {
+    if (column.non_finite_values > 0) {
+      insights.push({
+        title: `${formatNumber(column.non_finite_values)} non-finite values`,
+        detail: `Review infinite values in ${column.name}.`,
+        good: false,
+      });
+    }
     if (column.potential_outliers > 0) {
       insights.push({
         title: `${column.potential_outliers} potential outliers`,

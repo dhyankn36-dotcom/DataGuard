@@ -24,7 +24,10 @@ def profile_dataset(df: pd.DataFrame):
         }
 
         if pd.api.types.is_numeric_dtype(series):
-            numeric = series.dropna()
+            non_finite = int(series.isin([float("inf"), float("-inf")]).sum())
+            numeric = series[
+                ~series.isin([float("inf"), float("-inf")])
+            ].dropna()
 
             column_info["statistics"] = {
                 "mean": float(numeric.mean()) if not numeric.empty else None,
@@ -32,6 +35,8 @@ def profile_dataset(df: pd.DataFrame):
                 "minimum": float(numeric.min()) if not numeric.empty else None,
                 "maximum": float(numeric.max()) if not numeric.empty else None
             }
+
+            column_info["non_finite_values"] = non_finite
 
             if len(numeric) >= 4:
                 q1 = numeric.quantile(0.25)
