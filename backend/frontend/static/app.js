@@ -162,9 +162,19 @@ function renderProfile(filename) {
 
 function renderColumns() {
   const search = document.querySelector("#column-search").value.trim().toLowerCase();
+  const issueFilter = document.querySelector("#column-issue-filter").value;
   const body = document.querySelector("#column-rows");
   body.replaceChildren();
-  const visible = state.columns.filter((column) => column.name.toLowerCase().includes(search));
+  const visible = state.columns.filter((column) => {
+    if (!column.name.toLowerCase().includes(search)) return false;
+    if (issueFilter === "missing") return column.missing_values > 0;
+    if (issueFilter === "duplicates") return column.duplicate_values > 0;
+    if (issueFilter === "outliers") {
+      return column.potential_outliers > 0 || column.non_finite_values > 0;
+    }
+    if (issueFilter === "empty_constant") return column.is_empty || column.is_constant;
+    return true;
+  });
   document.querySelector("#no-columns").hidden = visible.length > 0;
 
   for (const column of visible) {
@@ -448,6 +458,7 @@ elements.dropZone.addEventListener("drop", (event) => {
   uploadFile(event.dataTransfer.files[0]);
 });
 document.querySelector("#column-search").addEventListener("input", renderColumns);
+document.querySelector("#column-issue-filter").addEventListener("change", renderColumns);
 document.querySelector("#delete-dataset").addEventListener("click", deleteActiveDataset);
 document.querySelector("#clean-export-button").addEventListener("click", downloadCleanedDataset);
 document.querySelector("#preview-previous").addEventListener("click", () => {
