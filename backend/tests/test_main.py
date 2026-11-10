@@ -71,6 +71,30 @@ def test_clean_export_can_drop_incomplete_rows(tmp_path, monkeypatch):
     ]
 
 
+def test_clean_export_uses_utf8_bom_for_spreadsheet_compatibility(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    original = "name,city\nZoë,München\n".encode("utf-8")
+    upload = client.post(
+        "/api/datasets/upload",
+        files={"file": ("international.csv", original, "text/csv")},
+    )
+
+    response = client.get(
+        f"/api/datasets/{upload.json()['dataset_id']}/cleaned"
+    )
+
+    assert response.status_code == 200
+    assert response.content.startswith(b"\xef\xbb\xbf")
+    assert response.content.decode("utf-8-sig").splitlines() == [
+        "name,city",
+        "Zoë,München",
+    ]
+    assert (tmp_path / f"{upload.json()['dataset_id']}.csv").read_bytes() == original
+
+
 def test_clean_export_leaves_all_empty_columns_unfilled(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
     client = TestClient(main.app)
