@@ -114,6 +114,22 @@ def prepare_cleaned_dataset(
     return cleaned, removed_incomplete_rows, removed_duplicate_rows, filled_values
 
 
+def neutralize_spreadsheet_formula(value: object) -> object:
+    if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
+        return f"'{value}"
+    return value
+
+
+def to_spreadsheet_safe_csv(dataframe: pd.DataFrame) -> str:
+    safe_dataframe = dataframe.apply(
+        lambda column: column.map(neutralize_spreadsheet_formula)
+    )
+    safe_dataframe.columns = [
+        neutralize_spreadsheet_formula(column) for column in safe_dataframe.columns
+    ]
+    return safe_dataframe.to_csv(index=False, na_rep="")
+
+
 @app.get("/api/datasets")
 def list_datasets():
     datasets = []
@@ -320,7 +336,7 @@ def download_cleaned_dataset(
             "X-DataGuard-Filled-Values": str(filled_values),
         }
         return Response(
-            content=cleaned.to_csv(index=False, na_rep=""),
+            content=to_spreadsheet_safe_csv(cleaned),
             media_type="text/csv",
             headers=headers,
         )

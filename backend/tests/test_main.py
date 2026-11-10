@@ -96,6 +96,34 @@ def test_clean_export_leaves_all_empty_columns_unfilled(tmp_path, monkeypatch):
     assert cleaned["notes"].isna().all()
 
 
+def test_clean_export_neutralizes_spreadsheet_formulas_without_changing_source(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    original = (
+        b"=header,text,number\n"
+        b"=1+1,\" +SUM(1,2)\",-7\n"
+        b"@cmd,-plain,4\n"
+    )
+    upload = client.post(
+        "/api/datasets/upload",
+        files={"file": ("formulas.csv", original, "text/csv")},
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    response = client.get(f"/api/datasets/{dataset_id}/cleaned")
+
+    assert response.status_code == 200
+    cleaned = pd.read_csv(BytesIO(response.content))
+    assert cleaned.columns.tolist() == ["'=header", "text", "number"]
+    assert cleaned.to_dict(orient="records") == [
+        {"'=header": "'=1+1", "text": "' +SUM(1,2)", "number": -7},
+        {"'=header": "'@cmd", "text": "'-plain", "number": 4},
+    ]
+    assert (tmp_path / f"{dataset_id}.csv").read_bytes() == original
+
+
 def test_clean_export_rejects_unknown_missing_strategy():
     client = TestClient(main.app)
 
