@@ -71,6 +71,53 @@ def test_clean_export_can_drop_incomplete_rows(tmp_path, monkeypatch):
     ]
 
 
+def test_clean_export_can_trim_text_and_find_new_duplicates(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    original = b"name,city,score\n Ada , Paris ,36\nAda,Paris,36\n"
+    upload = client.post(
+        "/api/datasets/upload",
+        files={"file": ("spaces.csv", original, "text/csv")},
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    response = client.get(
+        f"/api/datasets/{dataset_id}/cleaned"
+        "?trim_whitespace=true&remove_duplicates=true"
+    )
+
+    assert response.status_code == 200
+    assert response.headers["X-DataGuard-Trimmed-Values"] == "2"
+    assert response.headers["X-DataGuard-Removed-Duplicate-Rows"] == "1"
+    assert pd.read_csv(BytesIO(response.content)).to_dict(orient="records") == [
+        {"name": "Ada", "city": "Paris", "score": 36}
+    ]
+    assert (tmp_path / f"{dataset_id}.csv").read_bytes() == original
+
+
+def test_clean_export_keeps_whitespace_by_default(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={
+            "file": (
+                "spaces.csv",
+                b"name\n Ada \n",
+                "text/csv",
+            )
+        },
+    )
+
+    response = client.get(
+        f"/api/datasets/{upload.json()['dataset_id']}/cleaned"
+    )
+
+    assert response.status_code == 200
+    assert response.headers["X-DataGuard-Trimmed-Values"] == "0"
+    assert pd.read_csv(BytesIO(response.content))["name"].tolist() == [" Ada "]
+
+
 def test_clean_export_leaves_all_empty_columns_unfilled(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
     client = TestClient(main.app)

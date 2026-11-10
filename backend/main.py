@@ -75,10 +75,12 @@ def prepare_cleaned_dataset(
     dataframe: pd.DataFrame,
     missing_strategy: str,
     remove_duplicates: bool,
-) -> tuple[pd.DataFrame, int, int, int]:
+    trim_whitespace: bool = False,
+) -> tuple[pd.DataFrame, int, int, int, int]:
     cleaned = dataframe.copy()
     removed_incomplete_rows = 0
     filled_values = 0
+    trimmed_values = 0
 
     if missing_strategy == "drop_rows":
         rows_before = len(cleaned)
@@ -106,12 +108,34 @@ def prepare_cleaned_dataset(
                 cleaned[column] = series.fillna(fill_value)
         filled_values = missing_before - int(cleaned.isna().sum().sum())
 
+    if trim_whitespace:
+        for column in cleaned.columns:
+            series = cleaned[column]
+            if not (
+                pd.api.types.is_object_dtype(series.dtype)
+                or pd.api.types.is_string_dtype(series.dtype)
+            ):
+                continue
+            trimmed = series.map(
+                lambda value: value.strip() if isinstance(value, str) else value
+            )
+            trimmed_values += int(
+                (series.notna() & trimmed.ne(series)).sum()
+            )
+            cleaned[column] = trimmed
+
     duplicates_before = len(cleaned)
     if remove_duplicates:
         cleaned = cleaned.drop_duplicates()
     removed_duplicate_rows = duplicates_before - len(cleaned)
 
-    return cleaned, removed_incomplete_rows, removed_duplicate_rows, filled_values
+    return (
+        cleaned,
+        removed_incomplete_rows,
+        removed_duplicate_rows,
+        filled_values,
+        trimmed_values,
+    )
 
 
 @app.get("/api/datasets")
@@ -293,6 +317,7 @@ def download_cleaned_dataset(
     dataset_id: str,
     missing_strategy: Literal["keep", "drop_rows", "fill_median_mode"] = "keep",
     remove_duplicates: bool = False,
+    trim_whitespace: bool = False,
 ):
     file_path = find_dataset(dataset_id)
     try:
@@ -302,11 +327,13 @@ def download_cleaned_dataset(
             removed_incomplete_rows,
             removed_duplicate_rows,
             filled_values,
+            trimmed_values,
         ) = (
             prepare_cleaned_dataset(
                 dataframe,
                 missing_strategy,
                 remove_duplicates,
+                trim_whitespace,
             )
         )
         headers = {
@@ -318,6 +345,7 @@ def download_cleaned_dataset(
             "X-DataGuard-Removed-Incomplete-Rows": str(removed_incomplete_rows),
             "X-DataGuard-Removed-Duplicate-Rows": str(removed_duplicate_rows),
             "X-DataGuard-Filled-Values": str(filled_values),
+            "X-DataGuard-Trimmed-Values": str(trimmed_values),
         }
         return Response(
             content=cleaned.to_csv(index=False, na_rep=""),
