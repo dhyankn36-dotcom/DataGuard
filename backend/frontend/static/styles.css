@@ -73,6 +73,7 @@ button { cursor: pointer; }
 .api-status { display: flex; align-items: center; gap: 8px; color: #647184; font-size: 10px; }
 .signed-in-user { max-width: 180px; overflow: hidden; color: #647184; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .logout-button { min-height: 32px; font-size: 10px; }
+.change-password-button { min-height: 32px; font-size: 10px; }
 .manage-accounts-button { min-height: 32px; font-size: 10px; }
 .account-dialog { width: min(100% - 32px, 480px); max-height: min(90vh, 680px); padding: 0; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--ink); box-shadow: 0 22px 70px #17233138; }
 .account-dialog::backdrop { background: #17233180; backdrop-filter: blur(2px); }
@@ -253,6 +254,7 @@ th:first-child, td:first-child { padding-left: 18px; }
   .api-status { display: none; }
   .signed-in-user { display: none; }
   .logout-button { min-height: 36px; padding: 0 9px; }
+  .change-password-button { min-height: 36px; padding: 0 9px; }
   .manage-accounts-button { min-height: 36px; padding: 0 9px; }
   .mobile-dataset-picker { display: block; min-width: 0; flex: 1; }
   .mobile-dataset-picker select { width: 100%; min-height: 36px; overflow: hidden; padding: 0 9px; border: 1px solid #dfe6ed; border-radius: 7px; background: #fff; color: #334154; font-size: 11px; text-overflow: ellipsis; }

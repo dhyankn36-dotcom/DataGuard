@@ -67,6 +67,11 @@ class CreateUserRequest(BaseModel):
     password: str = Field(min_length=12, max_length=1024)
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(max_length=1024)
+    new_password: str = Field(min_length=12, max_length=1024)
+
+
 def initialize_database() -> None:
     initialize_auth_database(DATABASE_PATH)
 
@@ -183,6 +188,45 @@ def logout(request: Request, response: Response):
 @app.get("/api/auth/me")
 def get_current_user(user: dict = Depends(current_user)):
     return {"user": user}
+
+
+@app.put("/api/auth/password")
+def change_password(
+    payload: ChangePasswordRequest,
+    request: Request,
+    user: dict = Depends(current_user),
+):
+    token = request.cookies.get(SESSION_COOKIE)
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    token_hash = hash_session_token(token)
+
+    with connect_database(DATABASE_PATH) as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        account = connection.execute(
+            "SELECT password_hash FROM users WHERE user_id = ?",
+            (user["user_id"],),
+        ).fetchone()
+        if account is None or not verify_password(
+            payload.current_password, account["password_hash"]
+        ):
+            raise HTTPException(status_code=400, detail="Current password is incorrect.")
+        if verify_password(payload.new_password, account["password_hash"]):
+            raise HTTPException(
+                status_code=400,
+                detail="Choose a new password different from your current password.",
+            )
+
+        connection.execute(
+            "UPDATE users SET password_hash = ? WHERE user_id = ?",
+            (hash_password(payload.new_password), user["user_id"]),
+        )
+        connection.execute(
+            "DELETE FROM sessions WHERE user_id = ? AND token_hash != ?",
+            (user["user_id"], token_hash),
+        )
+
+    return {"message": "Password changed. Other active sessions have been signed out."}
 
 
 @app.post("/api/admin/users", status_code=201)

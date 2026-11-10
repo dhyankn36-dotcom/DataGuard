@@ -50,6 +50,7 @@ Python virtual environments are excluded from Git.
 - `POST /api/auth/login` — sign in and create a browser session.
 - `POST /api/auth/logout` — revoke the current session.
 - `GET /api/auth/me` — retrieve the signed-in account.
+- `PUT /api/auth/password` — change the signed-in user's password; verifies the current password and signs out other active sessions.
 - `POST /api/admin/users` — administrator-only creation of a regular user account.
 - `GET /api/datasets` — list the signed-in user's datasets.
 - `POST /api/datasets/upload` — upload a CSV or XLSX file (`file` form field) to the signed-in user's workspace.

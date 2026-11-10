@@ -30,6 +30,13 @@ const elements = {
   confirmAccountPassword: document.querySelector("#confirm-account-password"),
   accountFormMessage: document.querySelector("#account-form-message"),
   createAccountButton: document.querySelector("#create-account-button"),
+  passwordDialog: document.querySelector("#password-dialog"),
+  changePasswordForm: document.querySelector("#change-password-form"),
+  currentPassword: document.querySelector("#current-password"),
+  newPassword: document.querySelector("#new-password"),
+  confirmNewPassword: document.querySelector("#confirm-new-password"),
+  passwordFormMessage: document.querySelector("#password-form-message"),
+  savePasswordButton: document.querySelector("#save-password-button"),
   fileInput: document.querySelector("#file-input"),
   dropZone: document.querySelector("#drop-zone"),
   uploadProgress: document.querySelector("#upload-progress"),
@@ -99,7 +106,9 @@ function showAuthScreen(message = "") {
   document.querySelector("#preview-rows").replaceChildren();
   elements.manageAccountsButton.hidden = true;
   elements.accountDialog.close();
+  elements.passwordDialog.close();
   elements.createAccountForm.reset();
+  elements.changePasswordForm.reset();
   elements.notice.hidden = true;
   elements.appShell.hidden = true;
   elements.authScreen.hidden = false;
@@ -121,7 +130,7 @@ async function requestJson(url, options) {
   if (!response.ok) {
     const error = new Error(result.detail || `Request failed (${response.status}).`);
     error.status = response.status;
-    if (response.status === 401 && !url.startsWith("/api/auth/")) {
+    if (response.status === 401 && url !== "/api/auth/login") {
       showAuthScreen("Your session expired. Please sign in again.");
     }
     throw error;
@@ -590,6 +599,49 @@ function closeAccountDialog() {
   elements.accountFormMessage.classList.remove("success");
 }
 
+function closePasswordDialog() {
+  elements.passwordDialog.close();
+  elements.changePasswordForm.reset();
+  elements.passwordFormMessage.hidden = true;
+  elements.passwordFormMessage.textContent = "";
+  elements.passwordFormMessage.classList.remove("success");
+}
+
+async function changePassword(event) {
+  event.preventDefault();
+  const newPassword = elements.newPassword.value;
+  if (newPassword !== elements.confirmNewPassword.value) {
+    elements.passwordFormMessage.textContent = "The new passwords do not match.";
+    elements.passwordFormMessage.classList.remove("success");
+    elements.passwordFormMessage.hidden = false;
+    elements.confirmNewPassword.focus();
+    return;
+  }
+
+  elements.savePasswordButton.disabled = true;
+  elements.passwordFormMessage.hidden = true;
+  try {
+    const result = await requestJson("/api/auth/password", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        current_password: elements.currentPassword.value,
+        new_password: newPassword,
+      }),
+    });
+    elements.passwordFormMessage.textContent = result.message;
+    elements.passwordFormMessage.classList.add("success");
+    elements.passwordFormMessage.hidden = false;
+    elements.changePasswordForm.reset();
+  } catch (error) {
+    elements.passwordFormMessage.textContent = error.message;
+    elements.passwordFormMessage.classList.remove("success");
+    elements.passwordFormMessage.hidden = false;
+  } finally {
+    elements.savePasswordButton.disabled = false;
+  }
+}
+
 async function createAccount(event) {
   event.preventDefault();
   const password = elements.newAccountPassword.value;
@@ -658,6 +710,17 @@ elements.manageAccountsButton.addEventListener("click", () => {
   elements.newAccountEmail.focus();
 });
 elements.createAccountForm.addEventListener("submit", createAccount);
+document.querySelector("#change-password-button").addEventListener("click", () => {
+  elements.passwordFormMessage.hidden = true;
+  elements.passwordDialog.showModal();
+  elements.currentPassword.focus();
+});
+elements.changePasswordForm.addEventListener("submit", changePassword);
+document.querySelector("#close-password-dialog").addEventListener("click", closePasswordDialog);
+document.querySelector("#cancel-password-dialog").addEventListener("click", closePasswordDialog);
+elements.passwordDialog.addEventListener("click", (event) => {
+  if (event.target === elements.passwordDialog) closePasswordDialog();
+});
 document.querySelector("#close-account-dialog").addEventListener("click", closeAccountDialog);
 document.querySelector("#cancel-account-dialog").addEventListener("click", closeAccountDialog);
 elements.accountDialog.addEventListener("click", (event) => {

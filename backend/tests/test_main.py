@@ -65,6 +65,72 @@ def test_api_requires_login_and_session_cookie():
     assert client.get("/api/auth/me").status_code == 401
 
 
+def test_change_password_validates_current_password_and_revokes_other_sessions():
+    current_session = TestClient(main.app)
+    other_session = TestClient(main.app)
+    wrong_password = current_session.put(
+        "/api/auth/password",
+        json={
+            "current_password": "wrong-password",
+            "new_password": "New-secure-password-456",
+        },
+    )
+    assert wrong_password.status_code == 400
+    assert current_session.get("/api/auth/me").status_code == 200
+
+    changed = current_session.put(
+        "/api/auth/password",
+        json={
+            "current_password": "Secure-admin-password-123",
+            "new_password": "New-secure-password-456",
+        },
+    )
+    assert changed.status_code == 200
+    assert "Other active sessions" in changed.json()["message"]
+    assert current_session.get("/api/auth/me").status_code == 200
+    assert other_session.get("/api/auth/me").status_code == 401
+
+    old_password_login = FastAPITestClient(main.app).post(
+        "/api/auth/login",
+        json={
+            "email": "admin@dataguard.test",
+            "password": "Secure-admin-password-123",
+        },
+    )
+    new_password_login = FastAPITestClient(main.app).post(
+        "/api/auth/login",
+        json={
+            "email": "admin@dataguard.test",
+            "password": "New-secure-password-456",
+        },
+    )
+    assert old_password_login.status_code == 401
+    assert new_password_login.status_code == 200
+
+
+def test_change_password_rejects_reuse_and_short_new_password():
+    client = TestClient(main.app)
+
+    reused = client.put(
+        "/api/auth/password",
+        json={
+            "current_password": "Secure-admin-password-123",
+            "new_password": "Secure-admin-password-123",
+        },
+    )
+    too_short = client.put(
+        "/api/auth/password",
+        json={
+            "current_password": "Secure-admin-password-123",
+            "new_password": "short",
+        },
+    )
+
+    assert reused.status_code == 400
+    assert too_short.status_code == 422
+    assert client.get("/api/auth/me").status_code == 200
+
+
 def test_datasets_are_private_and_only_admins_can_create_accounts():
     admin = TestClient(main.app)
     created = admin.post(

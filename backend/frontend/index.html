@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=5">
-    <script src="/static/app.js?v=5" defer></script>
+    <link rel="stylesheet" href="/static/styles.css?v=6">
+    <script src="/static/app.js?v=6" defer></script>
   </head>
   <body>
     <main id="auth-screen" class="auth-screen">
@@ -74,6 +74,9 @@
             <span id="signed-in-user" class="signed-in-user"></span>
             <button id="manage-accounts-button" class="button button-secondary manage-accounts-button" type="button" hidden>
               Manage accounts
+            </button>
+            <button id="change-password-button" class="button button-secondary change-password-button" type="button">
+              Change password
             </button>
             <button id="logout-button" class="button button-secondary logout-button" type="button">Sign out</button>
             <button id="header-upload" class="button button-primary" type="button"><span aria-hidden="true">＋</span> Upload dataset</button>
@@ -245,6 +248,30 @@
           <div class="account-form-actions">
             <button id="cancel-account-dialog" class="button button-secondary" type="button">Cancel</button>
             <button id="create-account-button" class="button button-primary" type="submit">Create account</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog id="password-dialog" class="account-dialog" aria-labelledby="password-dialog-title">
+        <form id="change-password-form" class="account-form">
+          <div class="account-dialog-heading">
+            <div>
+              <p class="eyebrow">ACCOUNT SECURITY</p>
+              <h2 id="password-dialog-title">Change password</h2>
+            </div>
+            <button id="close-password-dialog" class="dialog-close" type="button" aria-label="Close dialog">×</button>
+          </div>
+          <p class="account-description">Changing your password signs out your other active sessions.</p>
+          <label for="current-password">Current password</label>
+          <input id="current-password" name="current-password" type="password" autocomplete="current-password" required maxlength="1024">
+          <label for="new-password">New password</label>
+          <input id="new-password" name="new-password" type="password" autocomplete="new-password" required minlength="12" maxlength="1024">
+          <p class="account-hint">Use at least 12 characters.</p>
+          <label for="confirm-new-password">Confirm new password</label>
+          <input id="confirm-new-password" name="confirm-new-password" type="password" autocomplete="new-password" required minlength="12" maxlength="1024">
+          <p id="password-form-message" class="account-message" role="status" hidden></p>
+          <div class="account-form-actions">
+            <button id="cancel-password-dialog" class="button button-secondary" type="button">Cancel</button>
+            <button id="save-password-button" class="button button-primary" type="submit">Update password</button>
           </div>
         </form>
       </dialog>
