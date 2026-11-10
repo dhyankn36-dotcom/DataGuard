@@ -30,7 +30,7 @@ Dataset files and Python virtual environments are excluded from Git.
 - `GET /api/datasets/{dataset_id}/profile` — retrieve the quality profile.
 - `GET /api/datasets/{dataset_id}/report` — download a JSON quality report.
 - `GET /api/datasets/{dataset_id}/cleaned` — download a transformed CSV with optional `missing_strategy=drop_rows|fill_median_mode` and `remove_duplicates=true`. Median values fill numeric columns, most-common values fill other columns, and entirely empty columns stay empty. The response includes row/value counts in `X-DataGuard-*` headers; the source file is never modified.
-- `GET /api/datasets/{dataset_id}/preview?limit=100&offset=0` — paginate through rows (up to 1,000 per request).
+- `GET /api/datasets/{dataset_id}/preview?limit=100&offset=0` — paginate through rows (up to 1,000 per request). The workspace preview lets you choose 25, 50, 100, 250, 500, or 1,000 rows per page.
 - `GET /health` — check API health.
 
 ## Tests

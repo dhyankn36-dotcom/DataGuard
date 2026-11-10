@@ -151,7 +151,17 @@
           <section id="preview-view" class="panel preview-panel" hidden>
             <div class="panel-heading">
               <div><h2>Data preview</h2><p id="preview-caption">A sample of the first rows in this dataset.</p></div>
-              <span class="preview-limit">100 rows per page</span>
+              <label class="preview-limit" for="preview-page-size">
+                Rows per page
+                <select id="preview-page-size" class="preview-page-size">
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100" selected>100</option>
+                  <option value="250">250</option>
+                  <option value="500">500</option>
+                  <option value="1000">1,000</option>
+                </select>
+              </label>
             </div>
             <div class="table-scroll">
               <table><thead id="preview-head"></thead><tbody id="preview-rows"></tbody></table>

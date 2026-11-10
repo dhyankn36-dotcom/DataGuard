@@ -132,8 +132,12 @@ def test_root_serves_workspace_and_static_assets():
 
     assert page.status_code == 200
     assert "DataGuard" in page.text
+    assert 'id="preview-page-size"' in page.text
+    for page_size in ("25", "50", "100", "250", "500", "1000"):
+        assert f'<option value="{page_size}"' in page.text
     assert script.status_code == 200
     assert "loadDatasets" in script.text
+    assert 'querySelector("#preview-page-size")' in script.text
 
 
 def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):

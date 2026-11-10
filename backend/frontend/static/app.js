@@ -456,6 +456,10 @@ document.querySelector("#preview-previous").addEventListener("click", () => {
 document.querySelector("#preview-next").addEventListener("click", () => {
   changePreviewPage(state.previewOffset + state.previewPageSize);
 });
+document.querySelector("#preview-page-size").addEventListener("change", (event) => {
+  state.previewPageSize = Number(event.currentTarget.value);
+  changePreviewPage(0);
+});
 elements.profileTab.addEventListener("click", () => {
   elements.profileTab.classList.add("active");
   elements.previewTab.classList.remove("active");
