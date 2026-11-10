@@ -2,7 +2,8 @@
 
 DataGuard is a lightweight data quality workspace. Upload a CSV or XLSX file to
 review missing values, duplicate records, numeric statistics, potential
-outliers, and a preview of the source rows.
+outliers, and a preview of the source rows. CSV uploads automatically detect
+comma, semicolon, tab, and pipe delimiters.
 
 ## Run locally
 

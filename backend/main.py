@@ -1,3 +1,4 @@
+import csv
 import json
 from datetime import datetime, timezone
 from io import BytesIO
@@ -67,8 +68,17 @@ def find_dataset(dataset_id: str) -> Path:
 
 def read_dataset(file_path: Path, **options) -> pd.DataFrame:
     if file_path.suffix.lower() == ".csv":
-        return pd.read_csv(file_path, **options)
+        with file_path.open("r", encoding="utf-8-sig", newline="") as source:
+            delimiter = detect_csv_delimiter(source.read(64 * 1024))
+        return pd.read_csv(file_path, sep=delimiter, **options)
     return pd.read_excel(file_path, **options)
+
+
+def detect_csv_delimiter(sample: str) -> str:
+    try:
+        return csv.Sniffer().sniff(sample, delimiters=",;\t|").delimiter
+    except csv.Error:
+        return ","
 
 
 def prepare_cleaned_dataset(
@@ -178,7 +188,9 @@ async def upload_dataset(file: UploadFile = File(...)):
 
     try:
         if extension == ".csv":
-            dataframe = pd.read_csv(BytesIO(content))
+            sample = content[:64 * 1024].decode("utf-8-sig")
+            delimiter = detect_csv_delimiter(sample)
+            dataframe = pd.read_csv(BytesIO(content), sep=delimiter)
         else:
             dataframe = pd.read_excel(BytesIO(content))
 

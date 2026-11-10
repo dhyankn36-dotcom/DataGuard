@@ -1,6 +1,7 @@
 from io import BytesIO
 
 import pandas as pd
+import pytest
 from fastapi.testclient import TestClient
 
 import main
@@ -122,6 +123,37 @@ def test_upload_dataset_saves_valid_csv(tmp_path, monkeypatch):
     assert result["columns"] == 2
     assert result["column_names"] == ["name", "age"]
     assert (tmp_path / f'{result["dataset_id"]}.csv').exists()
+
+
+@pytest.mark.parametrize(
+    ("delimiter", "filename"),
+    [(";", "semicolon.csv"), ("\t", "tab.csv"), ("|", "pipe.csv")],
+)
+def test_upload_detects_csv_delimiter_across_dataset_views(
+    tmp_path, monkeypatch, delimiter, filename
+):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    original = (
+        f"name{delimiter}note\n"
+        f'Ada{delimiter}"contains{delimiter}delimiter"\n'
+    ).encode()
+
+    upload = client.post(
+        "/api/datasets/upload",
+        files={"file": (filename, original, "text/csv")},
+    )
+    dataset_id = upload.json()["dataset_id"]
+    profile = client.get(f"/api/datasets/{dataset_id}/profile")
+    preview = client.get(f"/api/datasets/{dataset_id}/preview")
+
+    assert upload.status_code == 200
+    assert upload.json()["column_names"] == ["name", "note"]
+    assert profile.json()["profile"]["total_columns"] == 2
+    assert preview.json()["columns"] == ["name", "note"]
+    assert preview.json()["rows"] == [
+        {"name": "Ada", "note": f"contains{delimiter}delimiter"}
+    ]
 
 
 def test_root_serves_workspace_and_static_assets():
