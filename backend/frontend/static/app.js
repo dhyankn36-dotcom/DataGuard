@@ -21,6 +21,10 @@ const elements = {
   previewTab: document.querySelector("#preview-tab"),
   qualityView: document.querySelector("#quality-view"),
   previewView: document.querySelector("#preview-view"),
+  apiStatus: document.querySelector("#api-status"),
+  apiStatusText: document.querySelector("#api-status-text"),
+  sidebarStatusDot: document.querySelector("#sidebar-status-dot"),
+  sidebarStatusText: document.querySelector("#sidebar-status-text"),
 };
 
 function formatNumber(value) {
@@ -51,6 +55,25 @@ async function requestJson(url, options) {
     throw new Error(result.detail || `Request failed (${response.status}).`);
   }
   return result;
+}
+
+async function checkApiHealth() {
+  try {
+    const result = await requestJson("/health");
+    if (result.status !== "healthy") {
+      throw new Error("The API reported an unhealthy status.");
+    }
+
+    elements.apiStatus.classList.remove("offline");
+    elements.apiStatusText.textContent = "API connected";
+    elements.sidebarStatusDot.classList.remove("offline");
+    elements.sidebarStatusText.textContent = "All systems operational";
+  } catch {
+    elements.apiStatus.classList.add("offline");
+    elements.apiStatusText.textContent = "API unavailable";
+    elements.sidebarStatusDot.classList.add("offline");
+    elements.sidebarStatusText.textContent = "Service unavailable";
+  }
 }
 
 async function loadDatasets(selectId) {
@@ -473,4 +496,5 @@ elements.previewTab.addEventListener("click", () => {
   elements.previewView.hidden = false;
 });
 
+checkApiHealth();
 loadDatasets().catch((error) => showNotice(error.message));

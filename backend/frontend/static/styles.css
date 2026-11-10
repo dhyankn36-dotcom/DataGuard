@@ -47,6 +47,7 @@ button { cursor: pointer; }
 .dataset-item-meta { display: block; margin-top: 3px; color: #8393a2; font-size: 9px; }
 .sidebar-bottom { display: flex; align-items: center; gap: 9px; margin-top: auto; padding: 14px 10px 3px; border-top: 1px solid #2c3946; color: #9eacb9; font-size: 10px; }
 .status-dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: #4fc4a5; box-shadow: 0 0 0 3px #4fc4a51c; }
+.status-dot.offline { background: #e16f63; box-shadow: 0 0 0 3px #e16f631c; }
 
 .main-content { max-width: 1680px; min-height: 100vh; margin-left: 248px; padding: 0 48px; }
 .topbar { display: flex; min-height: 72px; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
@@ -56,6 +57,7 @@ button { cursor: pointer; }
 .topbar-right { display: flex; align-items: center; gap: 24px; }
 .api-status { display: flex; align-items: center; gap: 8px; color: #647184; font-size: 10px; }
 .api-status .status-dot { width: 6px; height: 6px; }
+.api-status.offline { color: #a84439; }
 .button { display: inline-flex; min-height: 37px; align-items: center; justify-content: center; gap: 8px; padding: 0 15px; border: 0; border-radius: 7px; font-size: 11px; font-weight: 600; transition: background .15s, transform .15s; }
 .button:active { transform: translateY(1px); }
 .button-primary { background: var(--teal); color: white; box-shadow: 0 3px 8px #167f7820; }
