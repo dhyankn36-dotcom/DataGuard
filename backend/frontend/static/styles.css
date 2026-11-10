@@ -143,7 +143,10 @@ thead { background: #f8f9fb; }
 th { padding: 9px 13px; color: #929cab; font-size: 8px; font-weight: 600; white-space: nowrap; }
 td { padding: 10px 13px; border-top: 1px solid #f0f2f5; color: #566174; font-size: 9px; white-space: nowrap; }
 th:first-child, td:first-child { padding-left: 18px; }
-.column-name { max-width: 150px; overflow: hidden; color: #354256; font-weight: 600; text-overflow: ellipsis; }
+.column-name { max-width: 150px; color: #354256; font-weight: 600; }
+.column-statistics { margin-top: 5px; color: #718094; font-size: 8px; font-weight: 400; }
+.column-statistics summary { width: fit-content; color: var(--teal); cursor: pointer; }
+.column-statistics-values { display: grid; gap: 3px; margin-top: 5px; white-space: normal; }
 .type-pill { padding: 3px 6px; border-radius: 4px; background: #f1f3f7; color: #697589; font-size: 8px; }
 .completeness { display: flex; min-width: 90px; align-items: center; gap: 7px; }
 .completeness-track { width: 42px; height: 4px; overflow: hidden; border-radius: 4px; background: #edf0f3; }

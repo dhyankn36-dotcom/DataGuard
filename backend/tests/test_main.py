@@ -134,6 +134,8 @@ def test_root_serves_workspace_and_static_assets():
     assert "DataGuard" in page.text
     assert script.status_code == 200
     assert "loadDatasets" in script.text
+    assert "Numeric statistics" in script.text
+    assert "column.statistics.mean" in script.text
 
 
 def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):

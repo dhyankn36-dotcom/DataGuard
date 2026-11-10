@@ -174,6 +174,26 @@ function renderColumns() {
     nameCell.className = "column-name";
     nameCell.textContent = column.name;
     nameCell.title = column.name;
+    if (column.statistics) {
+      const statistics = document.createElement("details");
+      statistics.className = "column-statistics";
+      const summary = document.createElement("summary");
+      summary.textContent = "Numeric statistics";
+      const values = document.createElement("div");
+      values.className = "column-statistics-values";
+      for (const [label, value] of Object.entries({
+        Mean: column.statistics.mean,
+        Median: column.statistics.median,
+        Minimum: column.statistics.minimum,
+        Maximum: column.statistics.maximum,
+      })) {
+        const statistic = document.createElement("span");
+        statistic.textContent = `${label}: ${value == null ? "—" : formatNumber(value)}`;
+        values.append(statistic);
+      }
+      statistics.append(summary, values);
+      nameCell.append(statistics);
+    }
     const typeCell = document.createElement("td");
     const type = document.createElement("span");
     type.className = "type-pill";
