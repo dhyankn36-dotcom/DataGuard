@@ -137,6 +137,9 @@ h1 { margin-bottom: 8px; font: 700 28px Manrope, sans-serif; letter-spacing: -1.
 .search-box span { font-size: 17px; line-height: 1; }
 .search-box input { width: 100%; min-width: 0; border: 0; outline: 0; color: #4b5668; font-size: 9px; }
 .search-box input::placeholder { color: #a0a9b5; }
+.column-filters { display: flex; align-items: center; gap: 8px; }
+.column-filter-label { color: #7e8999; font-size: 9px; }
+.column-issue-filter { min-height: 30px; max-width: 150px; padding: 0 7px; border: 1px solid #e8ecf1; border-radius: 6px; background: #fff; color: #586477; font-size: 9px; }
 .table-scroll { overflow: auto; }
 table { width: 100%; border-collapse: collapse; text-align: left; }
 thead { background: #f8f9fb; }

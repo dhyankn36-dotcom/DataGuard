@@ -131,14 +131,24 @@
               <section id="quality" class="panel column-panel">
                 <div class="panel-heading">
                   <div><h2>Column quality</h2><p>A closer look at each field in your dataset.</p></div>
-                  <label class="search-box"><span aria-hidden="true">⌕</span><input id="column-search" type="search" placeholder="Find a column" aria-label="Find a column"></label>
+                  <div class="column-filters">
+                    <label class="column-filter-label" for="column-issue-filter">Show</label>
+                    <select id="column-issue-filter" class="column-issue-filter">
+                      <option value="all">All columns</option>
+                      <option value="missing">Missing values</option>
+                      <option value="duplicates">Duplicate values</option>
+                      <option value="outliers">Numeric outliers</option>
+                      <option value="empty_constant">Empty or constant</option>
+                    </select>
+                    <label class="search-box"><span aria-hidden="true">⌕</span><input id="column-search" type="search" placeholder="Find a column" aria-label="Find a column"></label>
+                  </div>
                 </div>
                 <div class="table-scroll">
                   <table>
                     <thead><tr><th>Column</th><th>Type</th><th>Completeness</th><th>Unique</th><th>Duplicates</th></tr></thead>
                     <tbody id="column-rows"></tbody>
                   </table>
-                  <div id="no-columns" class="table-empty" hidden>No columns match your search.</div>
+                  <div id="no-columns" class="table-empty" hidden>No columns match these filters.</div>
                 </div>
               </section>
               <aside class="panel insight-panel">

@@ -132,8 +132,14 @@ def test_root_serves_workspace_and_static_assets():
 
     assert page.status_code == 200
     assert "DataGuard" in page.text
+    assert 'id="column-issue-filter"' in page.text
+    for issue_type in ("all", "missing", "duplicates", "outliers", "empty_constant"):
+        assert f'<option value="{issue_type}">' in page.text
     assert script.status_code == 200
     assert "loadDatasets" in script.text
+    assert 'querySelector("#column-issue-filter")' in script.text
+    assert 'issueFilter === "missing"' in script.text
+    assert 'issueFilter === "outliers"' in script.text
 
 
 def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):
