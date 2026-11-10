@@ -132,8 +132,18 @@ def test_root_serves_workspace_and_static_assets():
 
     assert page.status_code == 200
     assert "DataGuard" in page.text
+    assert 'id="api-status-text">Checking API…</span>' in page.text
+    assert 'id="sidebar-status-text"' in page.text
     assert script.status_code == 200
     assert "loadDatasets" in script.text
+    assert "checkApiHealth" in script.text
+
+
+def test_health_endpoint_reports_healthy_status():
+    response = TestClient(main.app).get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "healthy"}
 
 
 def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):
