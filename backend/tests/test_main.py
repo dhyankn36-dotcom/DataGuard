@@ -132,8 +132,10 @@ def test_root_serves_workspace_and_static_assets():
 
     assert page.status_code == 200
     assert "DataGuard" in page.text
+    assert 'id="export-column-report"' in page.text
     assert script.status_code == 200
     assert "loadDatasets" in script.text
+    assert "report.csv" in script.text
 
 
 def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):
@@ -232,6 +234,43 @@ def test_download_report_includes_dataset_metadata_and_profile(
     }
     assert report["profile"]["total_missing_values"] == 1
     assert report["generated_at"].endswith("+00:00")
+
+
+def test_download_csv_report_flattens_column_quality_statistics(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={
+            "file": (
+                "sample.csv",
+                b"=score,category\n1,a\n2,a\n3,b\n4,b\n",
+                "text/csv",
+            )
+        },
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    response = client.get(f"/api/datasets/{dataset_id}/report.csv")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert f"dataguard-report-{dataset_id}.csv" in response.headers[
+        "content-disposition"
+    ]
+    report = pd.read_csv(BytesIO(response.content))
+    assert report["column"].tolist() == ["'=score", "category"]
+    score = report.iloc[0]
+    assert score["data_type"] == "int64"
+    assert score["missing_values"] == 0
+    assert score["mean"] == 2.5
+    assert score["median"] == 2.5
+    assert score["minimum"] == 1
+    assert score["maximum"] == 4
+    assert score["potential_outliers"] == 0
+    assert pd.isna(report.iloc[1]["mean"])
 
 
 def test_delete_dataset_removes_uploaded_file(tmp_path, monkeypatch):
