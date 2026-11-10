@@ -52,6 +52,7 @@ Python virtual environments are excluded from Git.
 - `GET /api/auth/me` — retrieve the signed-in account.
 - `PUT /api/auth/password` — change the signed-in user's password; verifies the current password and signs out other active sessions.
 - `POST /api/admin/users` — administrator-only creation of a regular user account.
+- `GET /api/admin/users` — administrator-only account directory (passwords and hashes are never returned).
 - `GET /api/datasets` — list the signed-in user's datasets.
 - `POST /api/datasets/upload` — upload a CSV or XLSX file (`file` form field) to the signed-in user's workspace.
 - `DELETE /api/datasets/{dataset_id}` — permanently delete an owned dataset.

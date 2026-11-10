@@ -244,6 +244,32 @@ def add_user(
     return {"user": user}
 
 
+@app.get("/api/admin/users")
+def list_users(admin: dict = Depends(current_user)):
+    require_admin(admin)
+    with connect_database(DATABASE_PATH) as connection:
+        rows = connection.execute(
+            """
+            SELECT user_id, email, role, created_at
+            FROM users
+            ORDER BY created_at, email COLLATE NOCASE
+            """
+        ).fetchall()
+    return {
+        "users": [
+            {
+                "user_id": row["user_id"],
+                "email": row["email"],
+                "role": row["role"],
+                "created_at": datetime.fromtimestamp(
+                    row["created_at"], timezone.utc
+                ).isoformat(),
+            }
+            for row in rows
+        ]
+    }
+
+
 def find_dataset(dataset_id: str, user_id: str) -> Path:
     try:
         normalized_id = str(uuid.UUID(dataset_id))

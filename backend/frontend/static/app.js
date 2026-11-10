@@ -30,6 +30,8 @@ const elements = {
   confirmAccountPassword: document.querySelector("#confirm-account-password"),
   accountFormMessage: document.querySelector("#account-form-message"),
   createAccountButton: document.querySelector("#create-account-button"),
+  accountList: document.querySelector("#account-list"),
+  refreshAccountsButton: document.querySelector("#refresh-accounts-button"),
   passwordDialog: document.querySelector("#password-dialog"),
   changePasswordForm: document.querySelector("#change-password-form"),
   currentPassword: document.querySelector("#current-password"),
@@ -669,12 +671,58 @@ async function createAccount(event) {
     elements.accountFormMessage.classList.add("success");
     elements.accountFormMessage.hidden = false;
     elements.createAccountForm.reset();
+    await loadAccounts();
   } catch (error) {
     elements.accountFormMessage.textContent = error.message;
     elements.accountFormMessage.classList.remove("success");
     elements.accountFormMessage.hidden = false;
   } finally {
     elements.createAccountButton.disabled = false;
+  }
+}
+
+function renderAccounts(users) {
+  elements.accountList.replaceChildren();
+  if (!users.length) {
+    const empty = document.createElement("p");
+    empty.className = "account-list-empty";
+    empty.textContent = "No accounts found.";
+    elements.accountList.append(empty);
+    return;
+  }
+
+  for (const user of users) {
+    const item = document.createElement("div");
+    item.className = "account-list-item";
+    const details = document.createElement("div");
+    details.className = "account-list-details";
+    const email = document.createElement("strong");
+    email.textContent = user.email;
+    const created = document.createElement("span");
+    created.textContent = `Added ${new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+    }).format(new Date(user.created_at))}`;
+    details.append(email, created);
+    const role = document.createElement("span");
+    role.className = `account-role${user.role === "admin" ? " admin" : ""}`;
+    role.textContent = user.role === "admin" ? "Admin" : "User";
+    item.append(details, role);
+    elements.accountList.append(item);
+  }
+}
+
+async function loadAccounts() {
+  elements.refreshAccountsButton.disabled = true;
+  try {
+    const result = await requestJson("/api/admin/users");
+    renderAccounts(result.users);
+  } catch (error) {
+    const message = document.createElement("p");
+    message.className = "account-list-empty account-list-error";
+    message.textContent = error.message;
+    elements.accountList.replaceChildren(message);
+  } finally {
+    elements.refreshAccountsButton.disabled = false;
   }
 }
 
@@ -707,9 +755,11 @@ elements.resetHelpToggle.addEventListener("click", () => {
 elements.manageAccountsButton.addEventListener("click", () => {
   elements.accountFormMessage.hidden = true;
   elements.accountDialog.showModal();
+  loadAccounts();
   elements.newAccountEmail.focus();
 });
 elements.createAccountForm.addEventListener("submit", createAccount);
+elements.refreshAccountsButton.addEventListener("click", loadAccounts);
 document.querySelector("#change-password-button").addEventListener("click", () => {
   elements.passwordFormMessage.hidden = true;
   elements.passwordDialog.showModal();

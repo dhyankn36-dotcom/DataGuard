@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=6">
-    <script src="/static/app.js?v=6" defer></script>
+    <link rel="stylesheet" href="/static/styles.css?v=7">
+    <script src="/static/app.js?v=7" defer></script>
   </head>
   <body>
     <main id="auth-screen" class="auth-screen">
@@ -228,7 +228,7 @@
         <footer class="footer"><span>DataGuard</span><span>Make every dataset count.</span></footer>
       </main>
       <dialog id="account-dialog" class="account-dialog" aria-labelledby="account-dialog-title">
-        <form id="create-account-form" class="account-form">
+        <div class="account-form">
           <div class="account-dialog-heading">
             <div>
               <p class="eyebrow">ADMINISTRATION</p>
@@ -237,19 +237,31 @@
             <button id="close-account-dialog" class="dialog-close" type="button" aria-label="Close dialog">×</button>
           </div>
           <p class="account-description">New accounts can sign in immediately. Share the temporary password securely.</p>
-          <label for="new-account-email">Email address</label>
-          <input id="new-account-email" name="email" type="email" autocomplete="off" required maxlength="254">
-          <label for="new-account-password">Temporary password</label>
-          <input id="new-account-password" name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="1024" aria-describedby="account-password-hint">
-          <p id="account-password-hint" class="account-hint">Use at least 12 characters.</p>
-          <label for="confirm-account-password">Confirm password</label>
-          <input id="confirm-account-password" name="confirm-password" type="password" autocomplete="new-password" required minlength="12" maxlength="1024">
-          <p id="account-form-message" class="account-message" role="status" hidden></p>
-          <div class="account-form-actions">
-            <button id="cancel-account-dialog" class="button button-secondary" type="button">Cancel</button>
-            <button id="create-account-button" class="button button-primary" type="submit">Create account</button>
-          </div>
-        </form>
+          <section class="account-directory" aria-labelledby="account-directory-title">
+            <div class="account-directory-heading">
+              <h3 id="account-directory-title">Existing accounts</h3>
+              <button id="refresh-accounts-button" class="text-button" type="button">Refresh</button>
+            </div>
+            <div id="account-list" class="account-list" aria-live="polite">
+              <p class="account-list-empty">Loading accounts…</p>
+            </div>
+          </section>
+          <form id="create-account-form" class="account-form account-create-form">
+            <h3 class="account-create-title">Add a user</h3>
+            <label for="new-account-email">Email address</label>
+            <input id="new-account-email" name="email" type="email" autocomplete="off" required maxlength="254">
+            <label for="new-account-password">Temporary password</label>
+            <input id="new-account-password" name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="1024" aria-describedby="account-password-hint">
+            <p id="account-password-hint" class="account-hint">Use at least 12 characters.</p>
+            <label for="confirm-account-password">Confirm password</label>
+            <input id="confirm-account-password" name="confirm-password" type="password" autocomplete="new-password" required minlength="12" maxlength="1024">
+            <p id="account-form-message" class="account-message" role="status" hidden></p>
+            <div class="account-form-actions">
+              <button id="cancel-account-dialog" class="button button-secondary" type="button">Cancel</button>
+              <button id="create-account-button" class="button button-primary" type="submit">Create account</button>
+            </div>
+          </form>
+        </div>
       </dialog>
       <dialog id="password-dialog" class="account-dialog" aria-labelledby="password-dialog-title">
         <form id="change-password-form" class="account-form">

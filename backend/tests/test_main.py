@@ -170,6 +170,14 @@ def test_datasets_are_private_and_only_admins_can_create_accounts():
         },
     )
     assert forbidden.status_code == 403
+    directory = admin.get("/api/admin/users")
+    assert directory.status_code == 200
+    assert {user["email"] for user in directory.json()["users"]} == {
+        "admin@dataguard.test",
+        "analyst@dataguard.test",
+    }
+    assert all("password_hash" not in user for user in directory.json()["users"])
+    assert analyst.get("/api/admin/users").status_code == 403
 
 
 def test_legacy_files_are_not_imported_or_deleted(tmp_path, monkeypatch):
