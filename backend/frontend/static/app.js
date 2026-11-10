@@ -8,6 +8,9 @@ const state = {
   selectionRequest: 0,
   previewRequest: 0,
   previewOffset: 0,
+  previewTotalRows: null,
+  previewSearch: "",
+  previewSearchTimer: null,
   previewPageSize: 100,
 };
 
@@ -61,6 +64,7 @@ const elements = {
   previewTab: document.querySelector("#preview-tab"),
   qualityView: document.querySelector("#quality-view"),
   previewView: document.querySelector("#preview-view"),
+  previewSearch: document.querySelector("#preview-search"),
 };
 
 function formatNumber(value) {
@@ -103,6 +107,10 @@ function showAuthScreen(message = "") {
   state.activeId = null;
   state.profile = null;
   state.columns = [];
+  state.previewSearch = "";
+  state.previewTotalRows = null;
+  clearTimeout(state.previewSearchTimer);
+  elements.previewSearch.value = "";
   state.displayNames.clear();
   elements.datasetList.replaceChildren();
   elements.datasetCount.textContent = "0";
@@ -216,6 +224,10 @@ async function selectDataset(datasetId) {
   const requestId = ++state.selectionRequest;
   state.activeId = datasetId;
   state.previewOffset = 0;
+  state.previewTotalRows = null;
+  state.previewSearch = "";
+  elements.previewSearch.value = "";
+  clearTimeout(state.previewSearchTimer);
   clearNotice();
   elements.emptyState.hidden = true;
   elements.dashboard.hidden = false;
@@ -423,11 +435,14 @@ async function deleteActiveDataset() {
 
 async function renderPreview(offset = state.previewOffset, datasetId = state.activeId) {
   const requestId = ++state.previewRequest;
+  const search = state.previewSearch.trim();
+  const searchQuery = search ? `&search=${encodeURIComponent(search)}` : "";
   const result = await requestJson(
-    `/api/datasets/${encodeURIComponent(datasetId)}/preview?limit=${state.previewPageSize}&offset=${offset}`,
+    `/api/datasets/${encodeURIComponent(datasetId)}/preview?limit=${state.previewPageSize}&offset=${offset}${searchQuery}`,
   );
   if (requestId !== state.previewRequest || datasetId !== state.activeId) return;
   state.previewOffset = result.offset;
+  state.previewTotalRows = result.total_rows ?? state.profile.total_rows;
   const head = document.querySelector("#preview-head");
   const body = document.querySelector("#preview-rows");
   head.replaceChildren();
@@ -450,13 +465,18 @@ async function renderPreview(offset = state.previewOffset, datasetId = state.act
     }
     body.append(row);
   }
-  document.querySelector("#preview-caption").textContent =
-    `Rows ${formatNumber(result.rows.length ? result.offset + 1 : 0)}–${formatNumber(result.offset + result.rows.length)} of ${formatNumber(state.profile.total_rows)}.`;
+  const firstRow = result.rows.length ? result.offset + 1 : 0;
+  const lastRow = result.offset + result.rows.length;
+  document.querySelector("#preview-caption").textContent = search
+    ? result.total_rows
+      ? `Rows ${formatNumber(firstRow)}–${formatNumber(lastRow)} of ${formatNumber(result.total_rows)} matching rows.`
+      : `No rows match “${search}”.`
+    : `Rows ${formatNumber(firstRow)}–${formatNumber(lastRow)} of ${formatNumber(state.profile.total_rows)}.`;
   document.querySelector("#preview-page-label").textContent =
-    `Page ${formatNumber(Math.floor(result.offset / result.limit) + 1)}`;
+    `Page ${formatNumber(Math.floor(result.offset / result.limit) + 1)} · ${formatNumber(result.limit)} rows per page`;
   document.querySelector("#preview-previous").disabled = result.offset === 0;
   document.querySelector("#preview-next").disabled =
-    !result.has_more || result.offset + result.rows.length >= state.profile.total_rows;
+    !result.has_more || result.offset + result.rows.length >= state.previewTotalRows;
 }
 
 async function changePreviewPage(offset) {
@@ -470,7 +490,7 @@ async function changePreviewPage(offset) {
     previous.disabled = state.previewOffset === 0;
     next.disabled =
       !state.profile
-      || state.previewOffset + state.previewPageSize >= state.profile.total_rows;
+      || state.previewOffset + state.previewPageSize >= state.previewTotalRows;
   }
 }
 
@@ -867,6 +887,15 @@ elements.dropZone.addEventListener("drop", (event) => {
   uploadFile(event.dataTransfer.files[0]);
 });
 document.querySelector("#column-search").addEventListener("input", renderColumns);
+elements.previewSearch.addEventListener("input", () => {
+  state.previewSearch = elements.previewSearch.value.trim();
+  state.previewOffset = 0;
+  state.previewRequest += 1;
+  clearTimeout(state.previewSearchTimer);
+  state.previewSearchTimer = setTimeout(() => {
+    renderPreview(0).catch((error) => showNotice(error.message));
+  }, 250);
+});
 document.querySelector("#delete-dataset").addEventListener("click", deleteActiveDataset);
 document.querySelector("#clean-export-button").addEventListener("click", downloadCleanedDataset);
 document.querySelector("#preview-previous").addEventListener("click", () => {

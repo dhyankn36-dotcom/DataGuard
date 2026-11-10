@@ -543,17 +543,35 @@ def preview_dataset(
     dataset_id: str,
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0, le=1_000_000),
+    search: str = Query(default="", max_length=200),
     user: dict = Depends(current_user),
 ):
     file_path = find_dataset(dataset_id, user["user_id"])
     try:
-        dataframe = read_dataset(
-            file_path,
-            nrows=limit + 1,
-            skiprows=range(1, offset + 1),
-        )
-        has_more = len(dataframe) > limit
-        page = dataframe.iloc[:limit]
+        search = search.strip()
+        if search:
+            dataframe = read_dataset(file_path)
+            matches = dataframe.astype("string").apply(
+                lambda column: column.str.contains(
+                    search,
+                    case=False,
+                    na=False,
+                    regex=False,
+                )
+            ).any(axis=1)
+            dataframe = dataframe.loc[matches]
+            total_rows = len(dataframe)
+            page = dataframe.iloc[offset : offset + limit]
+            has_more = offset + len(page) < total_rows
+        else:
+            dataframe = read_dataset(
+                file_path,
+                nrows=limit + 1,
+                skiprows=range(1, offset + 1),
+            )
+            has_more = len(dataframe) > limit
+            page = dataframe.iloc[:limit]
+            total_rows = None
         rows = json.loads(page.to_json(orient="records", date_format="iso"))
         return {
             "dataset_id": str(uuid.UUID(dataset_id)),
@@ -562,6 +580,7 @@ def preview_dataset(
             "limit": limit,
             "offset": offset,
             "has_more": has_more,
+            "total_rows": total_rows,
         }
     except Exception:
         raise HTTPException(

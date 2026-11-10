@@ -175,6 +175,9 @@ The preview endpoint accepts:
 
 - `limit`: number of records to return (1–1,000; default 100)
 - `offset`: number of records to skip (default 0)
+- `search`: optional, case-insensitive literal text matched across all columns
+  (maximum 200 characters); when present, `total_rows` reports the number of
+  matching rows.
 
 Example:
 

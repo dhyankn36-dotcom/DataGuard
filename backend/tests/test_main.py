@@ -442,6 +442,44 @@ def test_preview_paginates_xlsx_rows(tmp_path, monkeypatch):
     assert response.json()["has_more"] is True
 
 
+def test_preview_search_matches_all_rows_case_insensitively_and_literally(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={
+            "file": (
+                "sample.csv",
+                b"name,notes\nAda,first row\nGrace,group A\nLin,group a\n",
+                "text/csv",
+            )
+        },
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    response = client.get(
+        f"/api/datasets/{dataset_id}/preview?limit=1&search=GROUP%20A"
+    )
+    second_page = client.get(
+        f"/api/datasets/{dataset_id}/preview?limit=1&offset=1&search=GROUP%20A"
+    )
+    literal = client.get(
+        f"/api/datasets/{dataset_id}/preview?search=%5Efirst"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["rows"] == [{"name": "Grace", "notes": "group A"}]
+    assert response.json()["offset"] == 0
+    assert response.json()["total_rows"] == 2
+    assert response.json()["has_more"] is True
+    assert second_page.json()["rows"] == [{"name": "Lin", "notes": "group a"}]
+    assert second_page.json()["has_more"] is False
+    assert literal.json()["rows"] == []
+    assert literal.json()["total_rows"] == 0
+
+
 def test_preview_rejects_excessive_offset():
     client = TestClient(main.app)
 

@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=8">
-    <script src="/static/app.js?v=8" defer></script>
+    <link rel="stylesheet" href="/static/styles.css?v=9">
+    <script src="/static/app.js?v=9" defer></script>
   </head>
   <body>
     <main id="auth-screen" class="auth-screen">
@@ -188,7 +188,10 @@
           <section id="preview-view" class="panel preview-panel" hidden>
             <div class="panel-heading">
               <div><h2>Data preview</h2><p id="preview-caption">A sample of the first rows in this dataset.</p></div>
-              <span class="preview-limit">100 rows per page</span>
+              <label class="search-box preview-search-box">
+                <span aria-hidden="true">⌕</span>
+                <input id="preview-search" type="search" maxlength="200" placeholder="Search all rows" aria-label="Search all rows">
+              </label>
             </div>
             <div class="table-scroll">
               <table><thead id="preview-head"></thead><tbody id="preview-rows"></tbody></table>
