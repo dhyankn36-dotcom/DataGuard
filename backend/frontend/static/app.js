@@ -190,7 +190,10 @@ function renderColumns() {
     const percentage = document.createElement("span");
     percentage.className = "completeness-value";
     percentage.textContent = `${completeness.toFixed(1)}%`;
-    completenessWrap.append(track, percentage);
+    const missing = document.createElement("span");
+    missing.className = "missing-count";
+    missing.textContent = `${formatNumber(column.missing_values)} missing`;
+    completenessWrap.append(track, percentage, missing);
     completenessCell.append(completenessWrap);
     const uniqueCell = document.createElement("td");
     uniqueCell.textContent = formatNumber(column.unique_values);

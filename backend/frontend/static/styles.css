@@ -145,11 +145,12 @@ td { padding: 10px 13px; border-top: 1px solid #f0f2f5; color: #566174; font-siz
 th:first-child, td:first-child { padding-left: 18px; }
 .column-name { max-width: 150px; overflow: hidden; color: #354256; font-weight: 600; text-overflow: ellipsis; }
 .type-pill { padding: 3px 6px; border-radius: 4px; background: #f1f3f7; color: #697589; font-size: 8px; }
-.completeness { display: flex; min-width: 90px; align-items: center; gap: 7px; }
+.completeness { display: flex; min-width: 140px; align-items: center; gap: 7px; }
 .completeness-track { width: 42px; height: 4px; overflow: hidden; border-radius: 4px; background: #edf0f3; }
 .completeness-track span { display: block; height: 100%; border-radius: 4px; background: #56ae96; }
 .completeness.low .completeness-track span { background: #e3a15e; }
 .completeness-value { color: #657184; font-size: 8px; }
+.missing-count { color: #929cab; font-size: 8px; }
 .table-empty { padding: 28px 15px; color: #929cab; font-size: 10px; text-align: center; }
 .insight-panel { padding: 17px 16px 10px; }
 .insight-heading { display: flex; align-items: center; gap: 9px; padding-bottom: 11px; border-bottom: 1px solid #eff1f4; }

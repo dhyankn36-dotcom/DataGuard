@@ -132,8 +132,11 @@ def test_root_serves_workspace_and_static_assets():
 
     assert page.status_code == 200
     assert "DataGuard" in page.text
+    assert "Completeness / missing" in page.text
     assert script.status_code == 200
     assert "loadDatasets" in script.text
+    assert "column.missing_values" in script.text
+    assert "} missing`" in script.text
 
 
 def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):
