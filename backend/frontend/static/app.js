@@ -3,6 +3,7 @@ const state = {
   activeId: null,
   profile: null,
   columns: [],
+  healthRequestId: 0,
   previewOffset: 0,
   previewPageSize: 100,
 };
@@ -21,6 +22,10 @@ const elements = {
   previewTab: document.querySelector("#preview-tab"),
   qualityView: document.querySelector("#quality-view"),
   previewView: document.querySelector("#preview-view"),
+  apiStatus: document.querySelector("#api-status"),
+  apiStatusText: document.querySelector("#api-status-text"),
+  sidebarStatusDot: document.querySelector("#sidebar-status-dot"),
+  sidebarStatusText: document.querySelector("#sidebar-status-text"),
 };
 
 function formatNumber(value) {
@@ -51,6 +56,29 @@ async function requestJson(url, options) {
     throw new Error(result.detail || `Request failed (${response.status}).`);
   }
   return result;
+}
+
+function setApiHealthStatus(healthy) {
+  elements.apiStatus.classList.toggle("offline", !healthy);
+  elements.apiStatusText.textContent = healthy ? "API connected" : "API unavailable";
+  elements.sidebarStatusDot.classList.toggle("offline", !healthy);
+  elements.sidebarStatusText.textContent = healthy
+    ? "All systems operational"
+    : "Service unavailable";
+}
+
+async function checkApiHealth() {
+  const requestId = ++state.healthRequestId;
+  try {
+    const result = await requestJson("/health");
+    if (requestId === state.healthRequestId) {
+      setApiHealthStatus(result.status === "healthy");
+    }
+  } catch {
+    if (requestId === state.healthRequestId) {
+      setApiHealthStatus(false);
+    }
+  }
 }
 
 async function loadDatasets(selectId) {
@@ -472,5 +500,18 @@ elements.previewTab.addEventListener("click", () => {
   elements.qualityView.hidden = true;
   elements.previewView.hidden = false;
 });
+
+checkApiHealth();
+window.addEventListener("online", checkApiHealth);
+window.addEventListener("offline", () => {
+  state.healthRequestId += 1;
+  setApiHealthStatus(false);
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) checkApiHealth();
+});
+window.setInterval(() => {
+  if (!document.hidden) checkApiHealth();
+}, 30000);
 
 loadDatasets().catch((error) => showNotice(error.message));
