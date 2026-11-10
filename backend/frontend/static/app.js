@@ -3,6 +3,8 @@ const state = {
   activeId: null,
   profile: null,
   columns: [],
+  selectionRequestId: 0,
+  previewRequestId: 0,
   previewOffset: 0,
   previewPageSize: 100,
 };
@@ -58,6 +60,8 @@ async function loadDatasets(selectId) {
   state.datasets = result.datasets;
   renderDatasetList();
   if (!state.datasets.length) {
+    state.selectionRequestId += 1;
+    state.previewRequestId += 1;
     state.activeId = null;
     state.profile = null;
     elements.dashboard.hidden = true;
@@ -108,6 +112,7 @@ function renderDatasetList() {
 }
 
 async function selectDataset(datasetId) {
+  const selectionRequestId = ++state.selectionRequestId;
   state.activeId = datasetId;
   state.previewOffset = 0;
   clearNotice();
@@ -117,14 +122,18 @@ async function selectDataset(datasetId) {
 
   try {
     const result = await requestJson(`/api/datasets/${encodeURIComponent(datasetId)}/profile`);
+    if (selectionRequestId !== state.selectionRequestId) return;
+
     state.profile = result.profile;
     state.columns = Object.entries(result.profile.columns).map(([name, details]) => ({
       name,
       ...details,
     }));
     renderProfile(result.filename);
-    await renderPreview();
+    await renderPreview(0, selectionRequestId, datasetId);
   } catch (error) {
+    if (selectionRequestId !== state.selectionRequestId) return;
+
     showNotice(error.message);
     elements.dashboard.hidden = true;
     elements.emptyState.hidden = state.datasets.length > 0;
@@ -291,10 +300,23 @@ async function deleteActiveDataset() {
   }
 }
 
-async function renderPreview(offset = state.previewOffset) {
+async function renderPreview(
+  offset = state.previewOffset,
+  selectionRequestId = state.selectionRequestId,
+  datasetId = state.activeId,
+) {
+  const previewRequestId = ++state.previewRequestId;
   const result = await requestJson(
-    `/api/datasets/${encodeURIComponent(state.activeId)}/preview?limit=${state.previewPageSize}&offset=${offset}`,
+    `/api/datasets/${encodeURIComponent(datasetId)}/preview?limit=${state.previewPageSize}&offset=${offset}`,
   );
+  if (
+    selectionRequestId !== state.selectionRequestId
+    || previewRequestId !== state.previewRequestId
+    || datasetId !== state.activeId
+  ) {
+    return;
+  }
+
   state.previewOffset = result.offset;
   const head = document.querySelector("#preview-head");
   const body = document.querySelector("#preview-rows");
@@ -328,9 +350,12 @@ async function renderPreview(offset = state.previewOffset) {
 }
 
 async function changePreviewPage(offset) {
+  const selectionRequestId = state.selectionRequestId;
   try {
     await renderPreview(offset);
   } catch (error) {
+    if (selectionRequestId !== state.selectionRequestId) return;
+
     showNotice(error.message);
   }
 }
