@@ -320,7 +320,7 @@ def download_cleaned_dataset(
             "X-DataGuard-Filled-Values": str(filled_values),
         }
         return Response(
-            content=cleaned.to_csv(index=False, na_rep=""),
+            content=cleaned.to_csv(index=False, na_rep="").encode("utf-8-sig"),
             media_type="text/csv",
             headers=headers,
         )
