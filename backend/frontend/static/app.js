@@ -346,6 +346,7 @@ async function downloadCleanedDataset() {
     const params = new URLSearchParams({
       missing_strategy: document.querySelector("#missing-strategy").value,
       remove_duplicates: String(document.querySelector("#remove-duplicates").checked),
+      trim_whitespace: String(document.querySelector("#trim-whitespace").checked),
     });
     const response = await fetch(
       `/api/datasets/${encodeURIComponent(datasetId)}/cleaned?${params}`,
@@ -368,8 +369,9 @@ async function downloadCleanedDataset() {
     const removedRows = Number(response.headers.get("X-DataGuard-Removed-Incomplete-Rows") || 0);
     const removedDuplicates = Number(response.headers.get("X-DataGuard-Removed-Duplicate-Rows") || 0);
     const filledValues = Number(response.headers.get("X-DataGuard-Filled-Values") || 0);
+    const trimmedValues = Number(response.headers.get("X-DataGuard-Trimmed-Values") || 0);
     showNotice(
-      `Clean CSV downloaded. Filled ${formatNumber(filledValues)} values, removed ${formatNumber(removedRows)} incomplete rows, and removed ${formatNumber(removedDuplicates)} duplicate rows.`,
+      `Clean CSV downloaded. Filled ${formatNumber(filledValues)} values, trimmed ${formatNumber(trimmedValues)} values, removed ${formatNumber(removedRows)} incomplete rows, and removed ${formatNumber(removedDuplicates)} duplicate rows.`,
       true,
     );
     setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
