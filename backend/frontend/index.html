@@ -8,11 +8,35 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css">
-    <script src="/static/app.js" defer></script>
+    <link rel="stylesheet" href="/static/styles.css?v=8">
+    <script src="/static/app.js?v=8" defer></script>
   </head>
   <body>
-    <div class="app-shell">
+    <main id="auth-screen" class="auth-screen">
+      <a class="brand auth-brand" href="/" aria-label="DataGuard home">
+        <span class="brand-mark" aria-hidden="true">D</span>
+        <span>data<span class="brand-light">guard</span></span>
+      </a>
+      <form id="login-form" class="auth-card">
+        <p class="eyebrow">YOUR DATA WORKSPACE</p>
+        <h1>Welcome back</h1>
+        <p class="auth-description">Sign in with your DataGuard account to continue.</p>
+        <label for="login-email">Email address</label>
+        <input id="login-email" name="email" type="email" autocomplete="username" required maxlength="254">
+        <label for="login-password">Password</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required maxlength="1024">
+        <p id="auth-error" class="auth-error" role="alert" hidden></p>
+        <button id="login-button" class="button button-primary" type="submit">Sign in</button>
+        <button id="reset-help-toggle" class="auth-link" type="button" aria-expanded="false" aria-controls="reset-help">
+          Forgot your password?
+        </button>
+        <p id="reset-help" class="auth-help" hidden>
+          Self-service password reset is unavailable. Contact your DataGuard administrator for account recovery.
+        </p>
+        <p class="auth-help">Need an account? Ask your DataGuard administrator.</p>
+      </form>
+    </main>
+    <div id="app-shell" class="app-shell" hidden>
       <aside class="sidebar">
         <a class="brand" href="/" aria-label="DataGuard home">
           <span class="brand-mark" aria-hidden="true">D</span>
@@ -42,7 +66,19 @@
         <header class="topbar">
           <div class="breadcrumb"><span>Workspace</span><span class="crumb-separator">/</span><strong>Data quality</strong></div>
           <div class="topbar-right">
-            <span class="api-status"><span class="status-dot"></span> API connected</span>
+            <span id="api-status" class="api-status" role="status"><span class="status-dot"></span><span id="api-status-label">Checking API…</span></span>
+            <label id="mobile-dataset-picker" class="mobile-dataset-picker" hidden>
+              <span class="sr-only">Switch dataset</span>
+              <select id="mobile-dataset-select" aria-label="Switch dataset"></select>
+            </label>
+            <span id="signed-in-user" class="signed-in-user"></span>
+            <button id="manage-accounts-button" class="button button-secondary manage-accounts-button" type="button" hidden>
+              Manage accounts
+            </button>
+            <button id="change-password-button" class="button button-secondary change-password-button" type="button">
+              Change password
+            </button>
+            <button id="logout-button" class="button button-secondary logout-button" type="button">Sign out</button>
             <button id="header-upload" class="button button-primary" type="button"><span aria-hidden="true">＋</span> Upload dataset</button>
           </div>
         </header>
@@ -94,6 +130,7 @@
             </div>
             <div class="dataset-actions">
               <a id="export-report" class="button button-secondary export-button" href="#" download>Export report</a>
+              <button id="rename-dataset-button" class="button button-secondary" type="button">Rename</button>
               <div class="view-switch" role="tablist" aria-label="Dataset view">
                 <button id="profile-tab" class="view-tab active" role="tab" aria-selected="true" type="button">Quality overview</button>
                 <button id="preview-tab" class="view-tab" role="tab" aria-selected="false" type="button">Data preview</button>
@@ -135,7 +172,7 @@
                 </div>
                 <div class="table-scroll">
                   <table>
-                    <thead><tr><th>Column</th><th>Type</th><th>Completeness</th><th>Unique</th><th>Duplicates</th></tr></thead>
+                    <thead><tr><th>Column</th><th>Type</th><th>Completeness / missing</th><th>Unique</th><th>Duplicates</th><th>Numeric summary</th></tr></thead>
                     <tbody id="column-rows"></tbody>
                   </table>
                   <div id="no-columns" class="table-empty" hidden>No columns match your search.</div>
@@ -191,6 +228,86 @@
         </section>
         <footer class="footer"><span>DataGuard</span><span>Make every dataset count.</span></footer>
       </main>
+      <dialog id="account-dialog" class="account-dialog" aria-labelledby="account-dialog-title">
+        <div class="account-form">
+          <div class="account-dialog-heading">
+            <div>
+              <p class="eyebrow">ADMINISTRATION</p>
+              <h2 id="account-dialog-title">Create an account</h2>
+            </div>
+            <button id="close-account-dialog" class="dialog-close" type="button" aria-label="Close dialog">×</button>
+          </div>
+          <p class="account-description">New accounts can sign in immediately. Share the temporary password securely.</p>
+          <section class="account-directory" aria-labelledby="account-directory-title">
+            <div class="account-directory-heading">
+              <h3 id="account-directory-title">Existing accounts</h3>
+              <button id="refresh-accounts-button" class="text-button" type="button">Refresh</button>
+            </div>
+            <div id="account-list" class="account-list" aria-live="polite">
+              <p class="account-list-empty">Loading accounts…</p>
+            </div>
+          </section>
+          <form id="create-account-form" class="account-form account-create-form">
+            <h3 class="account-create-title">Add a user</h3>
+            <label for="new-account-email">Email address</label>
+            <input id="new-account-email" name="email" type="email" autocomplete="off" required maxlength="254">
+            <label for="new-account-password">Temporary password</label>
+            <input id="new-account-password" name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="1024" aria-describedby="account-password-hint">
+            <p id="account-password-hint" class="account-hint">Use at least 12 characters.</p>
+            <label for="confirm-account-password">Confirm password</label>
+            <input id="confirm-account-password" name="confirm-password" type="password" autocomplete="new-password" required minlength="12" maxlength="1024">
+            <p id="account-form-message" class="account-message" role="status" hidden></p>
+            <div class="account-form-actions">
+              <button id="cancel-account-dialog" class="button button-secondary" type="button">Cancel</button>
+              <button id="create-account-button" class="button button-primary" type="submit">Create account</button>
+            </div>
+          </form>
+        </div>
+      </dialog>
+      <dialog id="password-dialog" class="account-dialog" aria-labelledby="password-dialog-title">
+        <form id="change-password-form" class="account-form">
+          <div class="account-dialog-heading">
+            <div>
+              <p class="eyebrow">ACCOUNT SECURITY</p>
+              <h2 id="password-dialog-title">Change password</h2>
+            </div>
+            <button id="close-password-dialog" class="dialog-close" type="button" aria-label="Close dialog">×</button>
+          </div>
+          <p class="account-description">Changing your password signs out your other active sessions.</p>
+          <label for="current-password">Current password</label>
+          <input id="current-password" name="current-password" type="password" autocomplete="current-password" required maxlength="1024">
+          <label for="new-password">New password</label>
+          <input id="new-password" name="new-password" type="password" autocomplete="new-password" required minlength="12" maxlength="1024">
+          <p class="account-hint">Use at least 12 characters.</p>
+          <label for="confirm-new-password">Confirm new password</label>
+          <input id="confirm-new-password" name="confirm-new-password" type="password" autocomplete="new-password" required minlength="12" maxlength="1024">
+          <p id="password-form-message" class="account-message" role="status" hidden></p>
+          <div class="account-form-actions">
+            <button id="cancel-password-dialog" class="button button-secondary" type="button">Cancel</button>
+            <button id="save-password-button" class="button button-primary" type="submit">Update password</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog id="rename-dialog" class="account-dialog" aria-labelledby="rename-dialog-title">
+        <form id="rename-form" class="account-form">
+          <div class="account-dialog-heading">
+            <div>
+              <p class="eyebrow">DATASET DETAILS</p>
+              <h2 id="rename-dialog-title">Rename dataset</h2>
+            </div>
+            <button id="close-rename-dialog" class="dialog-close" type="button" aria-label="Close dialog">×</button>
+          </div>
+          <p class="account-description">This only changes the display name. Your original data file stays unchanged.</p>
+          <label for="dataset-filename">Filename</label>
+          <input id="dataset-filename" name="filename" type="text" required maxlength="255" autocomplete="off">
+          <p id="rename-hint" class="account-hint">Keep the file extension unchanged.</p>
+          <p id="rename-message" class="account-message" role="status" hidden></p>
+          <div class="account-form-actions">
+            <button id="cancel-rename-dialog" class="button button-secondary" type="button">Cancel</button>
+            <button id="save-rename-button" class="button button-primary" type="submit">Save name</button>
+          </div>
+        </form>
+      </dialog>
     </div>
   </body>
 </html>

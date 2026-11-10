@@ -1,4 +1,9 @@
 import json
+import os
+import secrets
+import sqlite3
+import time
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
@@ -6,29 +11,110 @@ from typing import Literal
 import uuid
 
 import pandas as pd
+from app.auth import (
+    SESSION_LIFETIME_SECONDS,
+    authenticate_request,
+    connect_database,
+    create_user,
+    hash_password,
+    hash_session_token,
+    initialize_database as initialize_auth_database,
+    require_admin,
+    verify_password,
+)
 from app.services.profiling import profile_dataset
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 UPLOAD_DIR = BASE_DIR / "datasets"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 FRONTEND_DIR = Path(__file__).resolve().parent / "frontend"
+DATABASE_PATH = Path(
+    os.getenv("DATAGUARD_DATABASE_PATH", str(BASE_DIR / "dataguard.sqlite3"))
+).resolve()
 
 MAX_FILE_SIZE = 20 * 1024 * 1024
 ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
+SESSION_COOKIE = "dataguard_session"
+
+
+def cookie_secure_setting() -> bool:
+    value = os.getenv("DATAGUARD_COOKIE_SECURE", "false").strip().lower()
+    if value not in {"true", "false"}:
+        raise ValueError("DATAGUARD_COOKIE_SECURE must be true or false.")
+    return value == "true"
+
+
+COOKIE_SECURE = cookie_secure_setting()
+DUMMY_PASSWORD_HASH = hash_password("DataGuard invalid account password")
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(max_length=1024)
+
+
+class CreateUserRequest(BaseModel):
+    email: str = Field(
+        min_length=3,
+        max_length=254,
+        pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+    )
+    password: str = Field(min_length=12, max_length=1024)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(max_length=1024)
+    new_password: str = Field(min_length=12, max_length=1024)
+
+
+class RenameDatasetRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+
+
+def initialize_database() -> None:
+    initialize_auth_database(DATABASE_PATH)
+
+
+def current_user(request: Request) -> dict:
+    return authenticate_request(request, DATABASE_PATH)
+
+
+def create_session(user_id: str) -> tuple[str, int]:
+    token = secrets.token_urlsafe(32)
+    now = int(time.time())
+    expires_at = now + SESSION_LIFETIME_SECONDS
+    with connect_database(DATABASE_PATH) as connection:
+        connection.execute("DELETE FROM sessions WHERE expires_at <= ?", (now,))
+        connection.execute(
+            """
+            INSERT INTO sessions (token_hash, user_id, expires_at, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (hash_session_token(token), user_id, expires_at, now),
+        )
+    return token, expires_at
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    initialize_database()
+    yield
+
 
 app = FastAPI(
     title="DataGuard API",
     description="Intelligent Data Quality Monitoring Platform",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,18 +137,174 @@ def health_check():
     return {"status": "healthy"}
 
 
-def find_dataset(dataset_id: str) -> Path:
+@app.post("/api/auth/login")
+def login(payload: LoginRequest, response: Response):
+    normalized_email = payload.email.strip().lower()
+    with connect_database(DATABASE_PATH) as connection:
+        user = connection.execute(
+            "SELECT user_id, email, password_hash, role FROM users WHERE email = ?",
+            (normalized_email,),
+        ).fetchone()
+
+    password_hash = user["password_hash"] if user else DUMMY_PASSWORD_HASH
+    password_valid = verify_password(payload.password, password_hash)
+    if user is None or not password_valid:
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    token, _ = create_session(user["user_id"])
+    response.set_cookie(
+        key=SESSION_COOKIE,
+        value=token,
+        max_age=SESSION_LIFETIME_SECONDS,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="lax",
+        path="/",
+    )
+    return {
+        "user": {
+            "user_id": user["user_id"],
+            "email": user["email"],
+            "role": user["role"],
+        }
+    }
+
+
+@app.post("/api/auth/logout")
+def logout(request: Request, response: Response):
+    token = request.cookies.get(SESSION_COOKIE)
+    if token:
+        with connect_database(DATABASE_PATH) as connection:
+            connection.execute(
+                "DELETE FROM sessions WHERE token_hash = ?",
+                (hash_session_token(token),),
+            )
+    response.delete_cookie(
+        key=SESSION_COOKIE,
+        path="/",
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="lax",
+    )
+    return {"message": "Logged out."}
+
+
+@app.get("/api/auth/me")
+def get_current_user(user: dict = Depends(current_user)):
+    return {"user": user}
+
+
+@app.put("/api/auth/password")
+def change_password(
+    payload: ChangePasswordRequest,
+    request: Request,
+    user: dict = Depends(current_user),
+):
+    token = request.cookies.get(SESSION_COOKIE)
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    token_hash = hash_session_token(token)
+
+    with connect_database(DATABASE_PATH) as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        account = connection.execute(
+            "SELECT password_hash FROM users WHERE user_id = ?",
+            (user["user_id"],),
+        ).fetchone()
+        if account is None or not verify_password(
+            payload.current_password, account["password_hash"]
+        ):
+            raise HTTPException(status_code=400, detail="Current password is incorrect.")
+        if verify_password(payload.new_password, account["password_hash"]):
+            raise HTTPException(
+                status_code=400,
+                detail="Choose a new password different from your current password.",
+            )
+
+        connection.execute(
+            "UPDATE users SET password_hash = ? WHERE user_id = ?",
+            (hash_password(payload.new_password), user["user_id"]),
+        )
+        connection.execute(
+            "DELETE FROM sessions WHERE user_id = ? AND token_hash != ?",
+            (user["user_id"], token_hash),
+        )
+
+    return {"message": "Password changed. Other active sessions have been signed out."}
+
+
+@app.post("/api/admin/users", status_code=201)
+def add_user(
+    payload: CreateUserRequest,
+    admin: dict = Depends(current_user),
+):
+    require_admin(admin)
+    try:
+        user = create_user(
+            DATABASE_PATH, payload.email, payload.password, role="user"
+        )
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=409, detail="An account with that email exists.")
+    return {"user": user}
+
+
+@app.get("/api/admin/users")
+def list_users(admin: dict = Depends(current_user)):
+    require_admin(admin)
+    with connect_database(DATABASE_PATH) as connection:
+        rows = connection.execute(
+            """
+            SELECT user_id, email, role, created_at
+            FROM users
+            ORDER BY created_at, email COLLATE NOCASE
+            """
+        ).fetchall()
+    return {
+        "users": [
+            {
+                "user_id": row["user_id"],
+                "email": row["email"],
+                "role": row["role"],
+                "created_at": datetime.fromtimestamp(
+                    row["created_at"], timezone.utc
+                ).isoformat(),
+            }
+            for row in rows
+        ]
+    }
+
+
+def find_dataset(dataset_id: str, user_id: str) -> Path:
     try:
         normalized_id = str(uuid.UUID(dataset_id))
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid dataset ID.")
 
-    for extension in ALLOWED_EXTENSIONS:
-        candidate = UPLOAD_DIR / f"{normalized_id}{extension}"
-        if candidate.is_file():
-            return candidate
+    with connect_database(DATABASE_PATH) as connection:
+        dataset = connection.execute(
+            "SELECT extension FROM datasets WHERE dataset_id = ? AND user_id = ?",
+            (normalized_id, user_id),
+        ).fetchone()
+    if dataset is None or dataset["extension"] not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=404, detail="Dataset not found.")
+    candidate = UPLOAD_DIR / f"{normalized_id}{dataset['extension']}"
+    if not candidate.is_file():
+        raise HTTPException(status_code=404, detail="Dataset not found.")
+    return candidate
 
-    raise HTTPException(status_code=404, detail="Dataset not found.")
+
+def original_dataset_filename(dataset_id: str, user_id: str) -> str:
+    with connect_database(DATABASE_PATH) as connection:
+        dataset = connection.execute(
+            """
+            SELECT original_filename FROM datasets
+            WHERE dataset_id = ? AND user_id = ?
+            """,
+            (str(uuid.UUID(dataset_id)), user_id),
+        ).fetchone()
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found.")
+    return dataset["original_filename"]
 
 
 def read_dataset(file_path: Path, **options) -> pd.DataFrame:
@@ -115,42 +357,110 @@ def prepare_cleaned_dataset(
 
 
 @app.get("/api/datasets")
-def list_datasets():
-    datasets = []
-    for file_path in UPLOAD_DIR.iterdir():
-        if file_path.suffix.lower() not in ALLOWED_EXTENSIONS:
-            continue
-        try:
-            dataset_id = str(uuid.UUID(file_path.stem))
-        except ValueError:
-            continue
-        if not file_path.is_file():
-            continue
-
-        datasets.append({
-            "dataset_id": dataset_id,
-            "filename": file_path.name,
-            "size_bytes": file_path.stat().st_size,
-            "file_type": file_path.suffix[1:].upper(),
-        })
-
-    datasets.sort(key=lambda dataset: dataset["filename"])
+def list_datasets(user: dict = Depends(current_user)):
+    with connect_database(DATABASE_PATH) as connection:
+        rows = connection.execute(
+            """
+            SELECT dataset_id, original_filename, extension, size_bytes
+            FROM datasets
+            WHERE user_id = ?
+            ORDER BY original_filename COLLATE NOCASE
+            """,
+            (user["user_id"],),
+        ).fetchall()
+    datasets = [
+        {
+            "dataset_id": row["dataset_id"],
+            "filename": row["original_filename"],
+            "size_bytes": row["size_bytes"],
+            "file_type": row["extension"][1:].upper(),
+        }
+        for row in rows
+    ]
     return {"datasets": datasets}
 
 
 @app.delete("/api/datasets/{dataset_id}")
-def delete_dataset(dataset_id: str):
-    file_path = find_dataset(dataset_id)
+def delete_dataset(dataset_id: str, user: dict = Depends(current_user)):
+    file_path = find_dataset(dataset_id, user["user_id"])
     file_path.unlink()
+    with connect_database(DATABASE_PATH) as connection:
+        connection.execute(
+            "DELETE FROM datasets WHERE dataset_id = ? AND user_id = ?",
+            (str(uuid.UUID(dataset_id)), user["user_id"]),
+        )
     return {
         "message": "Dataset deleted successfully",
         "dataset_id": str(uuid.UUID(dataset_id)),
     }
 
 
+@app.patch("/api/datasets/{dataset_id}")
+def rename_dataset(
+    dataset_id: str,
+    payload: RenameDatasetRequest,
+    user: dict = Depends(current_user),
+):
+    try:
+        normalized_id = str(uuid.UUID(dataset_id))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid dataset ID.")
+
+    filename = payload.filename.strip()
+    if (
+        not filename
+        or Path(filename.replace("\\", "/")).name != filename
+        or any(ord(character) < 32 for character in filename)
+    ):
+        raise HTTPException(status_code=400, detail="Enter a valid filename.")
+
+    with connect_database(DATABASE_PATH) as connection:
+        dataset = connection.execute(
+            """
+            SELECT extension FROM datasets
+            WHERE dataset_id = ? AND user_id = ?
+            """,
+            (normalized_id, user["user_id"]),
+        ).fetchone()
+        if dataset is None:
+            raise HTTPException(status_code=404, detail="Dataset not found.")
+        if Path(filename).suffix.lower() != dataset["extension"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Keep the original {dataset['extension']} file extension.",
+            )
+        duplicate = connection.execute(
+            """
+            SELECT 1 FROM datasets
+            WHERE user_id = ? AND dataset_id != ?
+                AND original_filename = ? COLLATE NOCASE
+            LIMIT 1
+            """,
+            (user["user_id"], normalized_id, filename),
+        ).fetchone()
+        if duplicate:
+            raise HTTPException(
+                status_code=409,
+                detail="You already have a dataset with that filename.",
+            )
+        connection.execute(
+            """
+            UPDATE datasets SET original_filename = ?
+            WHERE dataset_id = ? AND user_id = ?
+            """,
+            (filename, normalized_id, user["user_id"]),
+        )
+
+    return {"dataset_id": normalized_id, "filename": filename}
+
+
 @app.post("/api/datasets/upload")
-async def upload_dataset(file: UploadFile = File(...)):
-    extension = Path(file.filename or "").suffix.lower()
+async def upload_dataset(
+    file: UploadFile = File(...),
+    user: dict = Depends(current_user),
+):
+    original_filename = Path((file.filename or "").replace("\\", "/")).name
+    extension = Path(original_filename).suffix.lower()
 
     if extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -188,19 +498,40 @@ async def upload_dataset(file: UploadFile = File(...)):
         if len(dataframe.columns) == 0:
             raise ValueError("The dataset contains no columns.")
 
-        destination.write_bytes(content)
-
     except Exception:
-        destination.unlink(missing_ok=True)
         raise HTTPException(
             status_code=400,
             detail="Invalid or unreadable dataset. Please check your file."
         )
 
+    destination.write_bytes(content)
+    try:
+        with connect_database(DATABASE_PATH) as connection:
+            connection.execute(
+                """
+                INSERT INTO datasets (
+                    dataset_id, user_id, original_filename, extension,
+                    size_bytes, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    dataset_id,
+                    user["user_id"],
+                    original_filename,
+                    extension,
+                    len(content),
+                    int(time.time()),
+                ),
+            )
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
+
     return {
         "message": "Dataset uploaded successfully",
         "dataset_id": dataset_id,
-        "filename": file.filename,
+        "filename": original_filename,
         "rows": len(dataframe),
         "columns": len(dataframe.columns),
         "column_names": dataframe.columns.tolist()
@@ -212,8 +543,9 @@ def preview_dataset(
     dataset_id: str,
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0, le=1_000_000),
+    user: dict = Depends(current_user),
 ):
-    file_path = find_dataset(dataset_id)
+    file_path = find_dataset(dataset_id, user["user_id"])
     try:
         dataframe = read_dataset(
             file_path,
@@ -239,15 +571,15 @@ def preview_dataset(
 
 
 @app.get("/api/datasets/{dataset_id}/profile")
-def get_dataset_profile(dataset_id: str):
-    file_path = find_dataset(dataset_id)
+def get_dataset_profile(dataset_id: str, user: dict = Depends(current_user)):
+    file_path = find_dataset(dataset_id, user["user_id"])
     try:
         df = read_dataset(file_path)
         profile = profile_dataset(df)
 
         return {
             "dataset_id": str(uuid.UUID(dataset_id)),
-            "filename": file_path.name,
+            "filename": original_dataset_filename(dataset_id, user["user_id"]),
             "profile": profile
         }
 
@@ -259,15 +591,15 @@ def get_dataset_profile(dataset_id: str):
 
 
 @app.get("/api/datasets/{dataset_id}/report")
-def download_dataset_report(dataset_id: str):
-    file_path = find_dataset(dataset_id)
+def download_dataset_report(dataset_id: str, user: dict = Depends(current_user)):
+    file_path = find_dataset(dataset_id, user["user_id"])
     try:
         dataframe = read_dataset(file_path)
         report = {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "dataset": {
                 "dataset_id": str(uuid.UUID(dataset_id)),
-                "filename": file_path.name,
+                "filename": original_dataset_filename(dataset_id, user["user_id"]),
                 "rows": len(dataframe),
                 "columns": len(dataframe.columns),
             },
@@ -293,8 +625,9 @@ def download_cleaned_dataset(
     dataset_id: str,
     missing_strategy: Literal["keep", "drop_rows", "fill_median_mode"] = "keep",
     remove_duplicates: bool = False,
+    user: dict = Depends(current_user),
 ):
-    file_path = find_dataset(dataset_id)
+    file_path = find_dataset(dataset_id, user["user_id"])
     try:
         dataframe = read_dataset(file_path)
         (

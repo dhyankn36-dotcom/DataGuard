@@ -1,9 +1,259 @@
 from io import BytesIO
+import sys
 
 import pandas as pd
-from fastapi.testclient import TestClient
+import pytest
+from fastapi.testclient import TestClient as FastAPITestClient
 
 import main
+
+TestClient = FastAPITestClient
+
+
+@pytest.fixture(autouse=True)
+def isolated_authenticated_test_environment(monkeypatch, tmp_path):
+    database_path = tmp_path.parent / f"{tmp_path.name}-dataguard.sqlite3"
+    monkeypatch.setattr(main, "DATABASE_PATH", database_path)
+    main.initialize_database()
+    main.create_user(
+        database_path,
+        "admin@dataguard.test",
+        "Secure-admin-password-123",
+        role="admin",
+    )
+
+    def authenticated_client(app):
+        client = FastAPITestClient(app)
+        response = client.post(
+            "/api/auth/login",
+            json={
+                "email": "admin@dataguard.test",
+                "password": "Secure-admin-password-123",
+            },
+        )
+        assert response.status_code == 200
+        return client
+
+    monkeypatch.setattr(sys.modules[__name__], "TestClient", authenticated_client)
+
+
+def test_api_requires_login_and_session_cookie():
+    client = FastAPITestClient(main.app)
+
+    assert client.get("/api/datasets").status_code == 401
+    invalid_login = client.post(
+        "/api/auth/login",
+        json={"email": "admin@dataguard.test", "password": "wrong"},
+    )
+    assert invalid_login.status_code == 401
+
+    login = client.post(
+        "/api/auth/login",
+        json={
+            "email": "admin@dataguard.test",
+            "password": "Secure-admin-password-123",
+        },
+    )
+    assert login.status_code == 200
+    assert login.json()["user"]["role"] == "admin"
+    assert client.cookies.get("dataguard_session")
+    assert "httponly" in login.headers["set-cookie"].lower()
+    assert "samesite=lax" in login.headers["set-cookie"].lower()
+    assert client.get("/api/auth/me").json()["user"]["email"] == "admin@dataguard.test"
+
+    assert client.post("/api/auth/logout").status_code == 200
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_change_password_validates_current_password_and_revokes_other_sessions():
+    current_session = TestClient(main.app)
+    other_session = TestClient(main.app)
+    wrong_password = current_session.put(
+        "/api/auth/password",
+        json={
+            "current_password": "wrong-password",
+            "new_password": "New-secure-password-456",
+        },
+    )
+    assert wrong_password.status_code == 400
+    assert current_session.get("/api/auth/me").status_code == 200
+
+    changed = current_session.put(
+        "/api/auth/password",
+        json={
+            "current_password": "Secure-admin-password-123",
+            "new_password": "New-secure-password-456",
+        },
+    )
+    assert changed.status_code == 200
+    assert "Other active sessions" in changed.json()["message"]
+    assert current_session.get("/api/auth/me").status_code == 200
+    assert other_session.get("/api/auth/me").status_code == 401
+
+    old_password_login = FastAPITestClient(main.app).post(
+        "/api/auth/login",
+        json={
+            "email": "admin@dataguard.test",
+            "password": "Secure-admin-password-123",
+        },
+    )
+    new_password_login = FastAPITestClient(main.app).post(
+        "/api/auth/login",
+        json={
+            "email": "admin@dataguard.test",
+            "password": "New-secure-password-456",
+        },
+    )
+    assert old_password_login.status_code == 401
+    assert new_password_login.status_code == 200
+
+
+def test_change_password_rejects_reuse_and_short_new_password():
+    client = TestClient(main.app)
+
+    reused = client.put(
+        "/api/auth/password",
+        json={
+            "current_password": "Secure-admin-password-123",
+            "new_password": "Secure-admin-password-123",
+        },
+    )
+    too_short = client.put(
+        "/api/auth/password",
+        json={
+            "current_password": "Secure-admin-password-123",
+            "new_password": "short",
+        },
+    )
+
+    assert reused.status_code == 400
+    assert too_short.status_code == 422
+    assert client.get("/api/auth/me").status_code == 200
+
+
+def test_datasets_are_private_and_only_admins_can_create_accounts():
+    admin = TestClient(main.app)
+    created = admin.post(
+        "/api/admin/users",
+        json={
+            "email": "analyst@dataguard.test",
+            "password": "Secure-analyst-password-123",
+        },
+    )
+    assert created.status_code == 201
+
+    upload = admin.post(
+        "/api/datasets/upload",
+        files={"file": ("private.csv", b"name\nAda\n", "text/csv")},
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    analyst = FastAPITestClient(main.app)
+    login = analyst.post(
+        "/api/auth/login",
+        json={
+            "email": "analyst@dataguard.test",
+            "password": "Secure-analyst-password-123",
+        },
+    )
+    assert login.status_code == 200
+    assert analyst.get("/api/datasets").json()["datasets"] == []
+    assert analyst.get(f"/api/datasets/{dataset_id}/profile").status_code == 404
+    assert analyst.delete(f"/api/datasets/{dataset_id}").status_code == 404
+    assert analyst.patch(
+        f"/api/datasets/{dataset_id}",
+        json={"filename": "stolen.csv"},
+    ).status_code == 404
+    assert admin.get("/api/datasets").json()["datasets"][0]["filename"] == "private.csv"
+
+    forbidden = analyst.post(
+        "/api/admin/users",
+        json={
+            "email": "other@dataguard.test",
+            "password": "Secure-other-password-123",
+        },
+    )
+    assert forbidden.status_code == 403
+    directory = admin.get("/api/admin/users")
+    assert directory.status_code == 200
+    assert {user["email"] for user in directory.json()["users"]} == {
+        "admin@dataguard.test",
+        "analyst@dataguard.test",
+    }
+    assert all("password_hash" not in user for user in directory.json()["users"])
+    assert analyst.get("/api/admin/users").status_code == 403
+
+
+def test_legacy_files_are_not_imported_or_deleted(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    legacy_file = tmp_path / "00000000-0000-0000-0000-000000000001.csv"
+    legacy_file.write_text("name\nAda\n", encoding="utf-8")
+    client = TestClient(main.app)
+
+    assert client.get("/api/datasets").json()["datasets"] == []
+    assert client.get(
+        "/api/datasets/00000000-0000-0000-0000-000000000001/profile"
+    ).status_code == 404
+    assert legacy_file.exists()
+
+
+def test_rename_dataset_updates_display_name_not_source_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    original = b"name,age\nAda,36\n"
+    upload = client.post(
+        "/api/datasets/upload",
+        files={"file": ("sample.csv", original, "text/csv")},
+    )
+    dataset_id = upload.json()["dataset_id"]
+    source = tmp_path / f"{dataset_id}.csv"
+
+    renamed = client.patch(
+        f"/api/datasets/{dataset_id}",
+        json={"filename": "Customers 2026.csv"},
+    )
+
+    assert renamed.status_code == 200
+    assert renamed.json() == {
+        "dataset_id": dataset_id,
+        "filename": "Customers 2026.csv",
+    }
+    assert client.get("/api/datasets").json()["datasets"][0]["filename"] == "Customers 2026.csv"
+    assert client.get(f"/api/datasets/{dataset_id}/profile").json()["filename"] == "Customers 2026.csv"
+    assert source.read_bytes() == original
+    assert not (tmp_path / "Customers 2026.csv").exists()
+
+
+def test_rename_dataset_rejects_bad_names_and_name_collisions(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    first = client.post(
+        "/api/datasets/upload",
+        files={"file": ("first.csv", b"name\nAda\n", "text/csv")},
+    ).json()["dataset_id"]
+    second = client.post(
+        "/api/datasets/upload",
+        files={"file": ("second.csv", b"name\nGrace\n", "text/csv")},
+    ).json()["dataset_id"]
+
+    wrong_extension = client.patch(
+        f"/api/datasets/{first}",
+        json={"filename": "renamed.xlsx"},
+    )
+    traversal = client.patch(
+        f"/api/datasets/{first}",
+        json={"filename": "../renamed.csv"},
+    )
+    collision = client.patch(
+        f"/api/datasets/{first}",
+        json={"filename": "SECOND.csv"},
+    )
+
+    assert wrong_extension.status_code == 400
+    assert traversal.status_code == 400
+    assert collision.status_code == 409
+    assert client.get("/api/datasets").json()["datasets"][0]["filename"] == "first.csv"
+    assert client.get(f"/api/datasets/{second}/profile").status_code == 200
 
 
 def test_clean_export_fills_missing_values_and_removes_duplicates(
@@ -132,8 +382,11 @@ def test_root_serves_workspace_and_static_assets():
 
     assert page.status_code == 200
     assert "DataGuard" in page.text
+    assert "Completeness / missing" in page.text
     assert script.status_code == 200
     assert "loadDatasets" in script.text
+    assert "column.missing_values" in script.text
+    assert "} missing`" in script.text
 
 
 def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):
@@ -226,7 +479,7 @@ def test_download_report_includes_dataset_metadata_and_profile(
     report = response.json()
     assert report["dataset"] == {
         "dataset_id": dataset_id,
-        "filename": f"{dataset_id}.csv",
+        "filename": "sample.csv",
         "rows": 2,
         "columns": 2,
     }

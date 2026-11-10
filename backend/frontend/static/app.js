@@ -1,13 +1,49 @@
 const state = {
   datasets: [],
   activeId: null,
+  user: null,
   profile: null,
   columns: [],
+  displayNames: new Map(),
+  selectionRequest: 0,
+  previewRequest: 0,
   previewOffset: 0,
   previewPageSize: 100,
 };
 
 const elements = {
+  appShell: document.querySelector("#app-shell"),
+  authScreen: document.querySelector("#auth-screen"),
+  loginForm: document.querySelector("#login-form"),
+  loginButton: document.querySelector("#login-button"),
+  loginEmail: document.querySelector("#login-email"),
+  loginPassword: document.querySelector("#login-password"),
+  authError: document.querySelector("#auth-error"),
+  resetHelpToggle: document.querySelector("#reset-help-toggle"),
+  resetHelp: document.querySelector("#reset-help"),
+  signedInUser: document.querySelector("#signed-in-user"),
+  manageAccountsButton: document.querySelector("#manage-accounts-button"),
+  accountDialog: document.querySelector("#account-dialog"),
+  createAccountForm: document.querySelector("#create-account-form"),
+  newAccountEmail: document.querySelector("#new-account-email"),
+  newAccountPassword: document.querySelector("#new-account-password"),
+  confirmAccountPassword: document.querySelector("#confirm-account-password"),
+  accountFormMessage: document.querySelector("#account-form-message"),
+  createAccountButton: document.querySelector("#create-account-button"),
+  accountList: document.querySelector("#account-list"),
+  refreshAccountsButton: document.querySelector("#refresh-accounts-button"),
+  passwordDialog: document.querySelector("#password-dialog"),
+  changePasswordForm: document.querySelector("#change-password-form"),
+  currentPassword: document.querySelector("#current-password"),
+  newPassword: document.querySelector("#new-password"),
+  confirmNewPassword: document.querySelector("#confirm-new-password"),
+  passwordFormMessage: document.querySelector("#password-form-message"),
+  savePasswordButton: document.querySelector("#save-password-button"),
+  renameDialog: document.querySelector("#rename-dialog"),
+  renameForm: document.querySelector("#rename-form"),
+  datasetFilename: document.querySelector("#dataset-filename"),
+  renameMessage: document.querySelector("#rename-message"),
+  saveRenameButton: document.querySelector("#save-rename-button"),
   fileInput: document.querySelector("#file-input"),
   dropZone: document.querySelector("#drop-zone"),
   uploadProgress: document.querySelector("#upload-progress"),
@@ -15,6 +51,10 @@ const elements = {
   notice: document.querySelector("#notice"),
   datasetList: document.querySelector("#dataset-list"),
   datasetCount: document.querySelector("#dataset-count"),
+  mobileDatasetPicker: document.querySelector("#mobile-dataset-picker"),
+  mobileDatasetSelect: document.querySelector("#mobile-dataset-select"),
+  apiStatus: document.querySelector("#api-status"),
+  apiStatusLabel: document.querySelector("#api-status-label"),
   emptyState: document.querySelector("#empty-state"),
   dashboard: document.querySelector("#dashboard"),
   profileTab: document.querySelector("#profile-tab"),
@@ -25,6 +65,12 @@ const elements = {
 
 function formatNumber(value) {
   return new Intl.NumberFormat().format(value);
+}
+
+function formatStatistic(value) {
+  return value == null
+    ? "—"
+    : new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
 }
 
 function formatBytes(bytes) {
@@ -44,17 +90,66 @@ function clearNotice() {
   elements.notice.textContent = "";
 }
 
+function setApiStatus(connected) {
+  elements.apiStatus.classList.toggle("disconnected", !connected);
+  elements.apiStatusLabel.textContent = connected ? "API connected" : "API unavailable";
+}
+
+function showAuthScreen(message = "") {
+  state.selectionRequest += 1;
+  state.previewRequest += 1;
+  state.user = null;
+  state.datasets = [];
+  state.activeId = null;
+  state.profile = null;
+  state.columns = [];
+  state.displayNames.clear();
+  elements.datasetList.replaceChildren();
+  elements.datasetCount.textContent = "0";
+  elements.mobileDatasetSelect.replaceChildren();
+  elements.mobileDatasetPicker.hidden = true;
+  document.querySelector("#column-rows").replaceChildren();
+  document.querySelector("#preview-head").replaceChildren();
+  document.querySelector("#preview-rows").replaceChildren();
+  elements.manageAccountsButton.hidden = true;
+  elements.accountDialog.close();
+  elements.passwordDialog.close();
+  elements.renameDialog.close();
+  elements.createAccountForm.reset();
+  elements.changePasswordForm.reset();
+  elements.renameForm.reset();
+  elements.notice.hidden = true;
+  elements.appShell.hidden = true;
+  elements.authScreen.hidden = false;
+  elements.authError.textContent = message;
+  elements.authError.hidden = !message;
+}
+
+function showWorkspace(user) {
+  state.user = user;
+  elements.signedInUser.textContent = user.email;
+  elements.manageAccountsButton.hidden = user.role !== "admin";
+  elements.authScreen.hidden = true;
+  elements.appShell.hidden = false;
+}
+
 async function requestJson(url, options) {
-  const response = await fetch(url, options);
+  const response = await fetch(url, { ...options, credentials: "include" });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(result.detail || `Request failed (${response.status}).`);
+    const error = new Error(result.detail || `Request failed (${response.status}).`);
+    error.status = response.status;
+    if (response.status === 401 && url !== "/api/auth/login") {
+      showAuthScreen("Your session expired. Please sign in again.");
+    }
+    throw error;
   }
   return result;
 }
 
 async function loadDatasets(selectId) {
   const result = await requestJson("/api/datasets");
+  setApiStatus(true);
   state.datasets = result.datasets;
   renderDatasetList();
   if (!state.datasets.length) {
@@ -74,6 +169,8 @@ async function loadDatasets(selectId) {
 function renderDatasetList() {
   elements.datasetCount.textContent = state.datasets.length;
   elements.datasetList.replaceChildren();
+  elements.mobileDatasetPicker.hidden = state.datasets.length === 0;
+  elements.mobileDatasetSelect.replaceChildren();
 
   if (!state.datasets.length) {
     const empty = document.createElement("p");
@@ -81,6 +178,14 @@ function renderDatasetList() {
     empty.textContent = "Your datasets will appear here.";
     elements.datasetList.append(empty);
     return;
+  }
+
+  for (const dataset of state.datasets) {
+    const option = document.createElement("option");
+    option.value = dataset.dataset_id;
+    option.textContent = state.displayNames.get(dataset.dataset_id) || dataset.filename;
+    option.selected = dataset.dataset_id === state.activeId;
+    elements.mobileDatasetSelect.append(option);
   }
 
   for (const dataset of state.datasets) {
@@ -96,7 +201,7 @@ function renderDatasetList() {
     text.className = "dataset-item-text";
     const name = document.createElement("span");
     name.className = "dataset-item-name";
-    name.textContent = dataset.filename;
+    name.textContent = state.displayNames.get(dataset.dataset_id) || dataset.filename;
     const meta = document.createElement("span");
     meta.className = "dataset-item-meta";
     meta.textContent = formatBytes(dataset.size_bytes);
@@ -108,6 +213,7 @@ function renderDatasetList() {
 }
 
 async function selectDataset(datasetId) {
+  const requestId = ++state.selectionRequest;
   state.activeId = datasetId;
   state.previewOffset = 0;
   clearNotice();
@@ -117,14 +223,16 @@ async function selectDataset(datasetId) {
 
   try {
     const result = await requestJson(`/api/datasets/${encodeURIComponent(datasetId)}/profile`);
+    if (requestId !== state.selectionRequest) return;
     state.profile = result.profile;
     state.columns = Object.entries(result.profile.columns).map(([name, details]) => ({
       name,
       ...details,
     }));
-    renderProfile(result.filename);
-    await renderPreview();
+    renderProfile(state.displayNames.get(datasetId) || result.filename);
+    await renderPreview(0, datasetId);
   } catch (error) {
+    if (requestId !== state.selectionRequest) return;
     showNotice(error.message);
     elements.dashboard.hidden = true;
     elements.emptyState.hidden = state.datasets.length > 0;
@@ -190,13 +298,31 @@ function renderColumns() {
     const percentage = document.createElement("span");
     percentage.className = "completeness-value";
     percentage.textContent = `${completeness.toFixed(1)}%`;
-    completenessWrap.append(track, percentage);
+    const missing = document.createElement("span");
+    missing.className = "missing-count";
+    missing.textContent = `${formatNumber(column.missing_values)} missing`;
+    completenessWrap.append(track, percentage, missing);
     completenessCell.append(completenessWrap);
     const uniqueCell = document.createElement("td");
     uniqueCell.textContent = formatNumber(column.unique_values);
     const duplicateCell = document.createElement("td");
     duplicateCell.textContent = formatNumber(column.duplicate_values);
-    row.append(nameCell, typeCell, completenessCell, uniqueCell, duplicateCell);
+    const statsCell = document.createElement("td");
+    statsCell.className = "numeric-summary";
+    if (column.statistics) {
+      const { mean, median, minimum, maximum } = column.statistics;
+      statsCell.textContent =
+        `Mean ${formatStatistic(mean)} · Median ${formatStatistic(median)} · Range ${formatStatistic(minimum)}–${formatStatistic(maximum)}`;
+      if (column.potential_outliers > 0) {
+        const outliers = document.createElement("span");
+        outliers.className = "outlier-count";
+        outliers.textContent = `${formatNumber(column.potential_outliers)} outliers`;
+        statsCell.append(outliers);
+      }
+    } else {
+      statsCell.textContent = "—";
+    }
+    row.append(nameCell, typeCell, completenessCell, uniqueCell, duplicateCell, statsCell);
     body.append(row);
   }
 }
@@ -274,7 +400,10 @@ function renderInsights(profile) {
 
 async function deleteActiveDataset() {
   const dataset = state.datasets.find((item) => item.dataset_id === state.activeId);
-  if (!dataset || !window.confirm(`Delete "${dataset.filename}"? This cannot be undone.`)) {
+  const filename = dataset
+    ? state.displayNames.get(dataset.dataset_id) || dataset.filename
+    : "";
+  if (!dataset || !window.confirm(`Delete "${filename}"? This cannot be undone.`)) {
     return;
   }
 
@@ -284,17 +413,20 @@ async function deleteActiveDataset() {
       method: "DELETE",
     });
     state.activeId = null;
+    state.displayNames.delete(dataset.dataset_id);
     await loadDatasets();
-    showNotice(`${dataset.filename} was deleted.`, true);
+    showNotice(`${filename} was deleted.`, true);
   } catch (error) {
     showNotice(error.message);
   }
 }
 
-async function renderPreview(offset = state.previewOffset) {
+async function renderPreview(offset = state.previewOffset, datasetId = state.activeId) {
+  const requestId = ++state.previewRequest;
   const result = await requestJson(
-    `/api/datasets/${encodeURIComponent(state.activeId)}/preview?limit=${state.previewPageSize}&offset=${offset}`,
+    `/api/datasets/${encodeURIComponent(datasetId)}/preview?limit=${state.previewPageSize}&offset=${offset}`,
   );
+  if (requestId !== state.previewRequest || datasetId !== state.activeId) return;
   state.previewOffset = result.offset;
   const head = document.querySelector("#preview-head");
   const body = document.querySelector("#preview-rows");
@@ -332,6 +464,13 @@ async function changePreviewPage(offset) {
     await renderPreview(offset);
   } catch (error) {
     showNotice(error.message);
+  } finally {
+    const previous = document.querySelector("#preview-previous");
+    const next = document.querySelector("#preview-next");
+    previous.disabled = state.previewOffset === 0;
+    next.disabled =
+      !state.profile
+      || state.previewOffset + state.previewPageSize >= state.profile.total_rows;
   }
 }
 
@@ -349,9 +488,13 @@ async function downloadCleanedDataset() {
     });
     const response = await fetch(
       `/api/datasets/${encodeURIComponent(datasetId)}/cleaned?${params}`,
+      { credentials: "include" },
     );
     if (!response.ok) {
       const result = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        showAuthScreen("Your session expired. Please sign in again.");
+      }
       throw new Error(result.detail || `Export failed (${response.status}).`);
     }
 
@@ -363,8 +506,6 @@ async function downloadCleanedDataset() {
     document.body.append(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(downloadUrl);
-
     const removedRows = Number(response.headers.get("X-DataGuard-Removed-Incomplete-Rows") || 0);
     const removedDuplicates = Number(response.headers.get("X-DataGuard-Removed-Duplicate-Rows") || 0);
     const filledValues = Number(response.headers.get("X-DataGuard-Filled-Values") || 0);
@@ -403,6 +544,7 @@ async function uploadFile(file) {
         return formData;
       })(),
     });
+    state.displayNames.set(result.dataset_id, result.filename);
     elements.uploadMessage.textContent = "Building your quality report…";
     await loadDatasets(result.dataset_id);
     showNotice(`${file.name} is ready to explore.`, true);
@@ -419,6 +561,283 @@ function openFilePicker() {
   elements.fileInput.click();
 }
 
+async function signIn(event) {
+  event.preventDefault();
+  elements.authError.hidden = true;
+  elements.loginButton.disabled = true;
+  try {
+    const result = await requestJson("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: elements.loginEmail.value,
+        password: elements.loginPassword.value,
+      }),
+    });
+    elements.loginPassword.value = "";
+    showWorkspace(result.user);
+    try {
+      await loadDatasets();
+    } catch (error) {
+      setApiStatus(false);
+      showNotice(error.message);
+    }
+  } catch (error) {
+    elements.authError.textContent = error.message;
+    elements.authError.hidden = false;
+  } finally {
+    elements.loginButton.disabled = false;
+  }
+}
+
+async function signOut() {
+  try {
+    await requestJson("/api/auth/logout", { method: "POST" });
+    state.datasets = [];
+    showAuthScreen();
+  } catch (error) {
+    showNotice(error.message);
+  }
+}
+
+function closeAccountDialog() {
+  elements.accountDialog.close();
+  elements.createAccountForm.reset();
+  elements.accountFormMessage.hidden = true;
+  elements.accountFormMessage.textContent = "";
+  elements.accountFormMessage.classList.remove("success");
+}
+
+function closePasswordDialog() {
+  elements.passwordDialog.close();
+  elements.changePasswordForm.reset();
+  elements.passwordFormMessage.hidden = true;
+  elements.passwordFormMessage.textContent = "";
+  elements.passwordFormMessage.classList.remove("success");
+}
+
+function closeRenameDialog() {
+  elements.renameDialog.close();
+  elements.renameForm.reset();
+  elements.renameMessage.hidden = true;
+  elements.renameMessage.textContent = "";
+  elements.renameMessage.classList.remove("success");
+}
+
+async function renameDataset(event) {
+  event.preventDefault();
+  const datasetId = state.activeId;
+  if (!datasetId) return;
+
+  elements.saveRenameButton.disabled = true;
+  elements.renameMessage.hidden = true;
+  try {
+    const result = await requestJson(`/api/datasets/${encodeURIComponent(datasetId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: elements.datasetFilename.value.trim() }),
+    });
+    state.displayNames.set(datasetId, result.filename);
+    state.datasets = state.datasets.map((dataset) => dataset.dataset_id === datasetId
+      ? { ...dataset, filename: result.filename }
+      : dataset);
+    renderDatasetList();
+    document.querySelector("#active-filename").textContent = result.filename;
+    closeRenameDialog();
+    showNotice(`Dataset renamed to ${result.filename}.`, true);
+  } catch (error) {
+    elements.renameMessage.textContent = error.message;
+    elements.renameMessage.classList.remove("success");
+    elements.renameMessage.hidden = false;
+  } finally {
+    elements.saveRenameButton.disabled = false;
+  }
+}
+
+async function changePassword(event) {
+  event.preventDefault();
+  const newPassword = elements.newPassword.value;
+  if (newPassword !== elements.confirmNewPassword.value) {
+    elements.passwordFormMessage.textContent = "The new passwords do not match.";
+    elements.passwordFormMessage.classList.remove("success");
+    elements.passwordFormMessage.hidden = false;
+    elements.confirmNewPassword.focus();
+    return;
+  }
+
+  elements.savePasswordButton.disabled = true;
+  elements.passwordFormMessage.hidden = true;
+  try {
+    const result = await requestJson("/api/auth/password", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        current_password: elements.currentPassword.value,
+        new_password: newPassword,
+      }),
+    });
+    elements.passwordFormMessage.textContent = result.message;
+    elements.passwordFormMessage.classList.add("success");
+    elements.passwordFormMessage.hidden = false;
+    elements.changePasswordForm.reset();
+  } catch (error) {
+    elements.passwordFormMessage.textContent = error.message;
+    elements.passwordFormMessage.classList.remove("success");
+    elements.passwordFormMessage.hidden = false;
+  } finally {
+    elements.savePasswordButton.disabled = false;
+  }
+}
+
+async function createAccount(event) {
+  event.preventDefault();
+  const password = elements.newAccountPassword.value;
+  if (password !== elements.confirmAccountPassword.value) {
+    elements.accountFormMessage.textContent = "The passwords do not match.";
+    elements.accountFormMessage.classList.remove("success");
+    elements.accountFormMessage.hidden = false;
+    elements.confirmAccountPassword.focus();
+    return;
+  }
+
+  elements.createAccountButton.disabled = true;
+  elements.accountFormMessage.hidden = true;
+  try {
+    const result = await requestJson("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: elements.newAccountEmail.value.trim(),
+        password,
+      }),
+    });
+    elements.accountFormMessage.textContent =
+      `Account created for ${result.user.email}. Share the temporary password securely.`;
+    elements.accountFormMessage.classList.add("success");
+    elements.accountFormMessage.hidden = false;
+    elements.createAccountForm.reset();
+    await loadAccounts();
+  } catch (error) {
+    elements.accountFormMessage.textContent = error.message;
+    elements.accountFormMessage.classList.remove("success");
+    elements.accountFormMessage.hidden = false;
+  } finally {
+    elements.createAccountButton.disabled = false;
+  }
+}
+
+function renderAccounts(users) {
+  elements.accountList.replaceChildren();
+  if (!users.length) {
+    const empty = document.createElement("p");
+    empty.className = "account-list-empty";
+    empty.textContent = "No accounts found.";
+    elements.accountList.append(empty);
+    return;
+  }
+
+  for (const user of users) {
+    const item = document.createElement("div");
+    item.className = "account-list-item";
+    const details = document.createElement("div");
+    details.className = "account-list-details";
+    const email = document.createElement("strong");
+    email.textContent = user.email;
+    const created = document.createElement("span");
+    created.textContent = `Added ${new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+    }).format(new Date(user.created_at))}`;
+    details.append(email, created);
+    const role = document.createElement("span");
+    role.className = `account-role${user.role === "admin" ? " admin" : ""}`;
+    role.textContent = user.role === "admin" ? "Admin" : "User";
+    item.append(details, role);
+    elements.accountList.append(item);
+  }
+}
+
+async function loadAccounts() {
+  elements.refreshAccountsButton.disabled = true;
+  try {
+    const result = await requestJson("/api/admin/users");
+    renderAccounts(result.users);
+  } catch (error) {
+    const message = document.createElement("p");
+    message.className = "account-list-empty account-list-error";
+    message.textContent = error.message;
+    elements.accountList.replaceChildren(message);
+  } finally {
+    elements.refreshAccountsButton.disabled = false;
+  }
+}
+
+async function initializeAuth() {
+  try {
+    const result = await requestJson("/api/auth/me");
+    showWorkspace(result.user);
+    try {
+      await loadDatasets();
+    } catch (error) {
+      setApiStatus(false);
+      showNotice(error.message);
+    }
+  } catch (error) {
+    if (error.status === 401) {
+      showAuthScreen();
+      return;
+    }
+    setApiStatus(false);
+    showAuthScreen(error.message);
+  }
+}
+
+elements.loginForm.addEventListener("submit", signIn);
+elements.resetHelpToggle.addEventListener("click", () => {
+  const expanded = elements.resetHelpToggle.getAttribute("aria-expanded") === "true";
+  elements.resetHelpToggle.setAttribute("aria-expanded", String(!expanded));
+  elements.resetHelp.hidden = expanded;
+});
+elements.manageAccountsButton.addEventListener("click", () => {
+  elements.accountFormMessage.hidden = true;
+  elements.accountDialog.showModal();
+  loadAccounts();
+  elements.newAccountEmail.focus();
+});
+elements.createAccountForm.addEventListener("submit", createAccount);
+elements.refreshAccountsButton.addEventListener("click", loadAccounts);
+document.querySelector("#change-password-button").addEventListener("click", () => {
+  elements.passwordFormMessage.hidden = true;
+  elements.passwordDialog.showModal();
+  elements.currentPassword.focus();
+});
+elements.changePasswordForm.addEventListener("submit", changePassword);
+document.querySelector("#rename-dataset-button").addEventListener("click", () => {
+  const dataset = state.datasets.find((item) => item.dataset_id === state.activeId);
+  if (!dataset) return;
+  elements.datasetFilename.value =
+    state.displayNames.get(dataset.dataset_id) || dataset.filename;
+  elements.renameMessage.hidden = true;
+  elements.renameDialog.showModal();
+  elements.datasetFilename.focus();
+  elements.datasetFilename.select();
+});
+elements.renameForm.addEventListener("submit", renameDataset);
+document.querySelector("#close-rename-dialog").addEventListener("click", closeRenameDialog);
+document.querySelector("#cancel-rename-dialog").addEventListener("click", closeRenameDialog);
+elements.renameDialog.addEventListener("click", (event) => {
+  if (event.target === elements.renameDialog) closeRenameDialog();
+});
+document.querySelector("#close-password-dialog").addEventListener("click", closePasswordDialog);
+document.querySelector("#cancel-password-dialog").addEventListener("click", closePasswordDialog);
+elements.passwordDialog.addEventListener("click", (event) => {
+  if (event.target === elements.passwordDialog) closePasswordDialog();
+});
+document.querySelector("#close-account-dialog").addEventListener("click", closeAccountDialog);
+document.querySelector("#cancel-account-dialog").addEventListener("click", closeAccountDialog);
+elements.accountDialog.addEventListener("click", (event) => {
+  if (event.target === elements.accountDialog) closeAccountDialog();
+});
+document.querySelector("#logout-button").addEventListener("click", signOut);
 document.querySelector("#header-upload").addEventListener("click", openFilePicker);
 document.querySelector("#empty-upload").addEventListener("click", openFilePicker);
 document.querySelector("#browse-button").addEventListener("click", (event) => {
@@ -456,6 +875,9 @@ document.querySelector("#preview-previous").addEventListener("click", () => {
 document.querySelector("#preview-next").addEventListener("click", () => {
   changePreviewPage(state.previewOffset + state.previewPageSize);
 });
+elements.mobileDatasetSelect.addEventListener("change", (event) => {
+  selectDataset(event.target.value);
+});
 elements.profileTab.addEventListener("click", () => {
   elements.profileTab.classList.add("active");
   elements.previewTab.classList.remove("active");
@@ -473,4 +895,4 @@ elements.previewTab.addEventListener("click", () => {
   elements.previewView.hidden = false;
 });
 
-loadDatasets().catch((error) => showNotice(error.message));
+initializeAuth();

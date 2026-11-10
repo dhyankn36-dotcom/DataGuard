@@ -113,21 +113,53 @@ Open the application at [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
 Interactive API documentation is available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
 
+Create the first administrator in a separate terminal before signing in:
+
+```powershell
+cd backend
+python create_admin.py admin@example.com
+```
+
+The command prompts for a password of at least 12 characters. Administrators
+can create regular user accounts with `POST /api/admin/users` (also available
+through `/docs` after signing in). Public self-registration is disabled.
+
+Sessions use expiring, HTTP-only cookies. For an HTTPS deployment, set
+`DATAGUARD_COOKIE_SECURE=true` before starting the API. The default is suitable
+for local HTTP development only. Dataset records are private to the account
+that uploaded them. The SQLite database is stored at
+`backend/dataguard.sqlite3` by default; set `DATAGUARD_DATABASE_PATH` to use a
+different location. Uploaded CSV and XLSX files are limited to 20 MB and
+stored in `datasets/`.
+
+Files already present in `datasets/` are not imported into user accounts and
+are not deleted automatically. Back up or remove them deliberately before
+starting a fresh authenticated workspace. Dataset files, the database, and
+Python virtual environments are excluded from Git.
+
 Health check: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health).
 
 ## API Reference
 
-All dataset endpoints use the `/api/datasets` prefix.
+Authentication uses expiring HTTP-only cookies. Dataset endpoints require a
+signed-in user; admins can manage accounts.
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/datasets` | List uploaded datasets |
+| `POST` | `/api/auth/login` | Sign in and create a browser session |
+| `POST` | `/api/auth/logout` | Revoke the current session |
+| `GET` | `/api/auth/me` | Retrieve the signed-in account |
+| `PUT` | `/api/auth/password` | Change password and revoke other active sessions |
+| `POST` | `/api/admin/users` | Admin-only user account creation |
+| `GET` | `/api/admin/users` | Admin-only account directory (no password data) |
+| `GET` | `/api/datasets` | List the signed-in user's datasets |
 | `POST` | `/api/datasets/upload` | Upload a CSV or XLSX file using the `file` form field |
-| `DELETE` | `/api/datasets/{dataset_id}` | Permanently delete an uploaded dataset |
-| `GET` | `/api/datasets/{dataset_id}/preview` | Retrieve a paginated row preview |
-| `GET` | `/api/datasets/{dataset_id}/profile` | Retrieve the dataset quality profile |
-| `GET` | `/api/datasets/{dataset_id}/report` | Download a JSON quality report |
-| `GET` | `/api/datasets/{dataset_id}/cleaned` | Download a cleaned CSV export |
+| `PATCH` | `/api/datasets/{dataset_id}` | Rename an owned dataset without changing its source file |
+| `DELETE` | `/api/datasets/{dataset_id}` | Permanently delete an owned dataset |
+| `GET` | `/api/datasets/{dataset_id}/preview` | Retrieve a paginated preview of an owned dataset |
+| `GET` | `/api/datasets/{dataset_id}/profile` | Retrieve the quality profile of an owned dataset |
+| `GET` | `/api/datasets/{dataset_id}/report` | Download a JSON quality report for an owned dataset |
+| `GET` | `/api/datasets/{dataset_id}/cleaned` | Download a cleaned CSV export of an owned dataset |
 | `GET` | `/health` | Check API health |
 
 ### Upload constraints
@@ -167,7 +199,9 @@ Example:
 GET /api/datasets/{dataset_id}/cleaned?missing_strategy=fill_median_mode&remove_duplicates=true
 ```
 
-The response is a CSV download and includes `X-DataGuard-*` headers with original/exported row counts and the number of removed or filled values. The original uploaded dataset remains unchanged.
+The response is a CSV download and includes `X-DataGuard-*` headers with
+original/exported row counts and the number of removed or filled values. The
+original uploaded dataset remains unchanged.
 
 ## Tests
 
@@ -190,7 +224,7 @@ python -m pytest -q
 - More detailed downloadable profiling visualizations.
 - Dataset comparison across versions.
 - Configurable validation rules and quality thresholds.
-- Authentication and access controls for multi-user deployments.
+- Role management and account lifecycle controls.
 
 ## Author
 
