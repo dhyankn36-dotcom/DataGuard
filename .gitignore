@@ -3,3 +3,7 @@ __pycache__/
 *.py[cod]
 
 datasets/*
+backend/dataguard.sqlite3
+backend/dataguard.sqlite3-shm
+backend/dataguard.sqlite3-wal
+backend/dataguard.sqlite3-journal
