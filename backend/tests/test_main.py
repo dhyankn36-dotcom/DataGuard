@@ -121,7 +121,53 @@ def test_upload_dataset_saves_valid_csv(tmp_path, monkeypatch):
     assert result["rows"] == 1
     assert result["columns"] == 2
     assert result["column_names"] == ["name", "age"]
+    assert result["filename"] == "sample.csv"
     assert (tmp_path / f'{result["dataset_id"]}.csv').exists()
+    assert (tmp_path / f'{result["dataset_id"]}.json').exists()
+
+
+def test_original_filename_is_used_in_dataset_list_profile_and_report(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={
+            "file": (
+                r"C:\fakepath\customer-data.csv",
+                b"name\nAda\n",
+                "text/csv",
+            )
+        },
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    listing = client.get("/api/datasets")
+    profile = client.get(f"/api/datasets/{dataset_id}/profile")
+    report = client.get(f"/api/datasets/{dataset_id}/report")
+
+    assert upload.json()["filename"] == "customer-data.csv"
+    assert listing.json()["datasets"][0]["filename"] == "customer-data.csv"
+    assert profile.json()["filename"] == "customer-data.csv"
+    assert report.json()["dataset"]["filename"] == "customer-data.csv"
+
+
+def test_existing_dataset_without_filename_metadata_remains_available(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    dataset_id = "00000000-0000-0000-0000-000000000001"
+    (tmp_path / f"{dataset_id}.csv").write_text("name\nAda\n", encoding="utf-8")
+    client = TestClient(main.app)
+
+    listing = client.get("/api/datasets")
+    profile = client.get(f"/api/datasets/{dataset_id}/profile")
+
+    assert listing.status_code == 200
+    assert listing.json()["datasets"][0]["filename"] == f"{dataset_id}.csv"
+    assert profile.status_code == 200
+    assert profile.json()["filename"] == f"{dataset_id}.csv"
 
 
 def test_root_serves_workspace_and_static_assets():
@@ -226,7 +272,7 @@ def test_download_report_includes_dataset_metadata_and_profile(
     report = response.json()
     assert report["dataset"] == {
         "dataset_id": dataset_id,
-        "filename": f"{dataset_id}.csv",
+        "filename": "sample.csv",
         "rows": 2,
         "columns": 2,
     }
@@ -243,12 +289,14 @@ def test_delete_dataset_removes_uploaded_file(tmp_path, monkeypatch):
     )
     dataset_id = upload.json()["dataset_id"]
     uploaded_file = tmp_path / f"{dataset_id}.csv"
+    metadata_file = tmp_path / f"{dataset_id}.json"
 
     response = client.delete(f"/api/datasets/{dataset_id}")
 
     assert response.status_code == 200
     assert response.json()["dataset_id"] == dataset_id
     assert not uploaded_file.exists()
+    assert not metadata_file.exists()
     assert client.get(f"/api/datasets/{dataset_id}/profile").status_code == 404
 
 

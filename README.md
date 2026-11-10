@@ -20,11 +20,12 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000). The API documentation is
 available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
 
 CSV and XLSX uploads are limited to 20 MB and are stored in `datasets/`.
-Dataset files and Python virtual environments are excluded from Git.
+The original upload filename is retained for display; dataset files and their
+metadata, along with Python virtual environments, are excluded from Git.
 
 ## API
 
-- `GET /api/datasets` — list datasets stored by the API.
+- `GET /api/datasets` — list datasets stored by the API, including their original upload filenames.
 - `POST /api/datasets/upload` — upload a CSV or XLSX file (`file` form field).
 - `DELETE /api/datasets/{dataset_id}` — permanently delete an uploaded dataset.
 - `GET /api/datasets/{dataset_id}/profile` — retrieve the quality profile.

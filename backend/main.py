@@ -65,6 +65,32 @@ def find_dataset(dataset_id: str) -> Path:
     raise HTTPException(status_code=404, detail="Dataset not found.")
 
 
+def get_dataset_filename(file_path: Path) -> str:
+    metadata_path = file_path.with_suffix(".json")
+    if not metadata_path.exists():
+        return file_path.name
+
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise HTTPException(
+            status_code=500,
+            detail="Dataset metadata could not be read.",
+        ) from error
+
+    filename = (
+        metadata.get("original_filename")
+        if isinstance(metadata, dict)
+        else None
+    )
+    if not isinstance(filename, str) or not filename:
+        raise HTTPException(
+            status_code=500,
+            detail="Dataset metadata is invalid.",
+        )
+    return filename
+
+
 def read_dataset(file_path: Path, **options) -> pd.DataFrame:
     if file_path.suffix.lower() == ".csv":
         return pd.read_csv(file_path, **options)
@@ -129,7 +155,7 @@ def list_datasets():
 
         datasets.append({
             "dataset_id": dataset_id,
-            "filename": file_path.name,
+            "filename": get_dataset_filename(file_path),
             "size_bytes": file_path.stat().st_size,
             "file_type": file_path.suffix[1:].upper(),
         })
@@ -142,6 +168,7 @@ def list_datasets():
 def delete_dataset(dataset_id: str):
     file_path = find_dataset(dataset_id)
     file_path.unlink()
+    file_path.with_suffix(".json").unlink(missing_ok=True)
     return {
         "message": "Dataset deleted successfully",
         "dataset_id": str(uuid.UUID(dataset_id)),
@@ -150,7 +177,8 @@ def delete_dataset(dataset_id: str):
 
 @app.post("/api/datasets/upload")
 async def upload_dataset(file: UploadFile = File(...)):
-    extension = Path(file.filename or "").suffix.lower()
+    original_filename = Path((file.filename or "").replace("\\", "/")).name
+    extension = Path(original_filename).suffix.lower()
 
     if extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -175,6 +203,7 @@ async def upload_dataset(file: UploadFile = File(...)):
     dataset_id = str(uuid.uuid4())
     filename = f"{dataset_id}{extension}"
     destination = UPLOAD_DIR / filename
+    metadata_path = destination.with_suffix(".json")
 
     try:
         if extension == ".csv":
@@ -189,9 +218,14 @@ async def upload_dataset(file: UploadFile = File(...)):
             raise ValueError("The dataset contains no columns.")
 
         destination.write_bytes(content)
+        metadata_path.write_text(
+            json.dumps({"original_filename": original_filename}),
+            encoding="utf-8",
+        )
 
     except Exception:
         destination.unlink(missing_ok=True)
+        metadata_path.unlink(missing_ok=True)
         raise HTTPException(
             status_code=400,
             detail="Invalid or unreadable dataset. Please check your file."
@@ -200,7 +234,7 @@ async def upload_dataset(file: UploadFile = File(...)):
     return {
         "message": "Dataset uploaded successfully",
         "dataset_id": dataset_id,
-        "filename": file.filename,
+        "filename": original_filename,
         "rows": len(dataframe),
         "columns": len(dataframe.columns),
         "column_names": dataframe.columns.tolist()
@@ -241,13 +275,14 @@ def preview_dataset(
 @app.get("/api/datasets/{dataset_id}/profile")
 def get_dataset_profile(dataset_id: str):
     file_path = find_dataset(dataset_id)
+    filename = get_dataset_filename(file_path)
     try:
         df = read_dataset(file_path)
         profile = profile_dataset(df)
 
         return {
             "dataset_id": str(uuid.UUID(dataset_id)),
-            "filename": file_path.name,
+            "filename": filename,
             "profile": profile
         }
 
@@ -261,13 +296,14 @@ def get_dataset_profile(dataset_id: str):
 @app.get("/api/datasets/{dataset_id}/report")
 def download_dataset_report(dataset_id: str):
     file_path = find_dataset(dataset_id)
+    filename = get_dataset_filename(file_path)
     try:
         dataframe = read_dataset(file_path)
         report = {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "dataset": {
                 "dataset_id": str(uuid.UUID(dataset_id)),
-                "filename": file_path.name,
+                "filename": filename,
                 "rows": len(dataframe),
                 "columns": len(dataframe.columns),
             },
