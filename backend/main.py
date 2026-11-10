@@ -288,6 +288,65 @@ def download_dataset_report(dataset_id: str):
         )
 
 
+@app.get("/api/datasets/{dataset_id}/report.csv")
+def download_dataset_csv_report(dataset_id: str):
+    file_path = find_dataset(dataset_id)
+    try:
+        dataframe = read_dataset(file_path)
+        profile = profile_dataset(dataframe)
+        rows = []
+        for name, details in profile["columns"].items():
+            statistics = details.get("statistics", {})
+            safe_name = f"'{name}" if name.lstrip().startswith(("=", "+", "-", "@")) else name
+            rows.append({
+                "column": safe_name,
+                "data_type": details["data_type"],
+                "missing_values": details["missing_values"],
+                "missing_percentage": details["missing_percentage"],
+                "unique_values": details["unique_values"],
+                "duplicate_values": details["duplicate_values"],
+                "is_empty": details["is_empty"],
+                "is_constant": details["is_constant"],
+                "non_finite_values": details.get("non_finite_values"),
+                "mean": statistics.get("mean"),
+                "median": statistics.get("median"),
+                "minimum": statistics.get("minimum"),
+                "maximum": statistics.get("maximum"),
+                "potential_outliers": details.get("potential_outliers"),
+            })
+
+        report = pd.DataFrame(rows, columns=[
+            "column",
+            "data_type",
+            "missing_values",
+            "missing_percentage",
+            "unique_values",
+            "duplicate_values",
+            "is_empty",
+            "is_constant",
+            "non_finite_values",
+            "mean",
+            "median",
+            "minimum",
+            "maximum",
+            "potential_outliers",
+        ])
+        return Response(
+            content=report.to_csv(index=False, na_rep=""),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="dataguard-report-{dataset_id}.csv"'
+                )
+            },
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not generate a CSV report for this dataset.",
+        )
+
+
 @app.get("/api/datasets/{dataset_id}/cleaned")
 def download_cleaned_dataset(
     dataset_id: str,

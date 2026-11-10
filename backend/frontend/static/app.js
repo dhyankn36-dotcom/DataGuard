@@ -138,6 +138,8 @@ function renderProfile(filename) {
   document.querySelector(".file-type-badge").textContent = dataset?.file_type || "DATA";
   document.querySelector("#export-report").href =
     `/api/datasets/${encodeURIComponent(state.activeId)}/report`;
+  document.querySelector("#export-column-report").href =
+    `/api/datasets/${encodeURIComponent(state.activeId)}/report.csv`;
   document.querySelector("#dataset-subtitle").textContent =
     `${formatBytes(dataset?.size_bytes || 0)} · ${formatNumber(profile.total_rows)} records`;
   document.querySelector("#total-rows").textContent = formatNumber(profile.total_rows);
