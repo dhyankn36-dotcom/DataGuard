@@ -40,3 +40,6 @@ Run the backend tests from `backend/`:
 ```powershell
 python -m pytest -q
 ```
+
+GitHub Actions runs the backend test suite on pushes and pull requests with
+Python 3.11 and 3.12.
