@@ -132,8 +132,13 @@ def test_root_serves_workspace_and_static_assets():
 
     assert page.status_code == 200
     assert "DataGuard" in page.text
+    for sort_key in ("name", "data_type", "completeness", "unique_values", "duplicate_values"):
+        assert f'data-sort-key="{sort_key}"' in page.text
     assert script.status_code == 200
     assert "loadDatasets" in script.text
+    assert 'querySelectorAll(".sort-button")' in script.text
+    assert 'header.closest("th").setAttribute' in script.text
+    assert '"ascending"' in script.text
 
 
 def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):

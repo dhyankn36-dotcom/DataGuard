@@ -3,6 +3,7 @@ const state = {
   activeId: null,
   profile: null,
   columns: [],
+  columnSort: { key: "name", direction: "asc" },
   previewOffset: 0,
   previewPageSize: 100,
 };
@@ -164,8 +165,34 @@ function renderColumns() {
   const search = document.querySelector("#column-search").value.trim().toLowerCase();
   const body = document.querySelector("#column-rows");
   body.replaceChildren();
-  const visible = state.columns.filter((column) => column.name.toLowerCase().includes(search));
+  const { key, direction } = state.columnSort;
+  const multiplier = direction === "asc" ? 1 : -1;
+  const visible = state.columns
+    .filter((column) => column.name.toLowerCase().includes(search))
+    .sort((left, right) => {
+      const leftValue = key === "completeness"
+        ? 100 - left.missing_percentage
+        : left[key];
+      const rightValue = key === "completeness"
+        ? 100 - right.missing_percentage
+        : right[key];
+      const comparison = typeof leftValue === "string"
+        ? leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: "base" })
+        : leftValue - rightValue;
+      return comparison * multiplier || left.name.localeCompare(right.name);
+    });
   document.querySelector("#no-columns").hidden = visible.length > 0;
+  for (const header of document.querySelectorAll(".sort-button")) {
+    const active = header.dataset.sortKey === key;
+    header.closest("th").setAttribute(
+      "aria-sort",
+      active ? (direction === "asc" ? "ascending" : "descending") : "none",
+    );
+    header.setAttribute(
+      "aria-label",
+      `${header.textContent}, ${active ? `sorted ${direction}` : "not sorted"}`,
+    );
+  }
 
   for (const column of visible) {
     const completeness = Math.max(0, 100 - column.missing_percentage);
@@ -200,6 +227,19 @@ function renderColumns() {
     body.append(row);
   }
 }
+
+document.querySelectorAll(".sort-button").forEach((button) => {
+  button.addEventListener("click", () => {
+    const key = button.dataset.sortKey;
+    state.columnSort = {
+      key,
+      direction: state.columnSort.key === key && state.columnSort.direction === "asc"
+        ? "desc"
+        : "asc",
+    };
+    renderColumns();
+  });
+});
 
 function renderInsights(profile) {
   const container = document.querySelector("#insights-list");

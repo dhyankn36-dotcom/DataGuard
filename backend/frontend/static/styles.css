@@ -141,6 +141,11 @@ h1 { margin-bottom: 8px; font: 700 28px Manrope, sans-serif; letter-spacing: -1.
 table { width: 100%; border-collapse: collapse; text-align: left; }
 thead { background: #f8f9fb; }
 th { padding: 9px 13px; color: #929cab; font-size: 8px; font-weight: 600; white-space: nowrap; }
+.sort-button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; cursor: pointer; }
+.sort-button::after { margin-left: 4px; color: var(--teal); content: ""; }
+.sort-button[aria-label*="sorted ascending"]::after { content: "↑"; }
+.sort-button[aria-label*="sorted descending"]::after { content: "↓"; }
+.sort-button:focus-visible { outline: 2px solid #54aa9d; outline-offset: 3px; }
 td { padding: 10px 13px; border-top: 1px solid #f0f2f5; color: #566174; font-size: 9px; white-space: nowrap; }
 th:first-child, td:first-child { padding-left: 18px; }
 .column-name { max-width: 150px; overflow: hidden; color: #354256; font-weight: 600; text-overflow: ellipsis; }

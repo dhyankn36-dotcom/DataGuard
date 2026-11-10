@@ -135,7 +135,15 @@
                 </div>
                 <div class="table-scroll">
                   <table>
-                    <thead><tr><th>Column</th><th>Type</th><th>Completeness</th><th>Unique</th><th>Duplicates</th></tr></thead>
+                    <thead>
+                      <tr>
+                        <th scope="col" aria-sort="ascending"><button class="sort-button" data-sort-key="name" type="button">Column</button></th>
+                        <th scope="col" aria-sort="none"><button class="sort-button" data-sort-key="data_type" type="button">Type</button></th>
+                        <th scope="col" aria-sort="none"><button class="sort-button" data-sort-key="completeness" type="button">Completeness</button></th>
+                        <th scope="col" aria-sort="none"><button class="sort-button" data-sort-key="unique_values" type="button">Unique</button></th>
+                        <th scope="col" aria-sort="none"><button class="sort-button" data-sort-key="duplicate_values" type="button">Duplicates</button></th>
+                      </tr>
+                    </thead>
                     <tbody id="column-rows"></tbody>
                   </table>
                   <div id="no-columns" class="table-empty" hidden>No columns match your search.</div>

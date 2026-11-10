@@ -3,6 +3,8 @@
 DataGuard is a lightweight data quality workspace. Upload a CSV or XLSX file to
 review missing values, duplicate records, numeric statistics, potential
 outliers, and a preview of the source rows.
+Column quality can be filtered by name and sorted by name, type, completeness,
+unique values, or duplicate values.
 
 ## Run locally
 
