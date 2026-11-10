@@ -20,7 +20,9 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000). The API documentation is
 available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
 
 CSV and XLSX uploads are limited to 20 MB and are stored in `datasets/`.
-Dataset files and Python virtual environments are excluded from Git.
+CSV files are read as UTF-8 (including UTF-8 with a BOM), with Windows-1252 as
+a fallback for legacy Windows exports. Dataset files and Python virtual
+environments are excluded from Git.
 
 ## API
 

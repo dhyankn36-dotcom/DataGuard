@@ -67,8 +67,15 @@ def find_dataset(dataset_id: str) -> Path:
 
 def read_dataset(file_path: Path, **options) -> pd.DataFrame:
     if file_path.suffix.lower() == ".csv":
-        return pd.read_csv(file_path, **options)
+        return read_csv_content(file_path.read_bytes(), **options)
     return pd.read_excel(file_path, **options)
+
+
+def read_csv_content(content: bytes, **options) -> pd.DataFrame:
+    try:
+        return pd.read_csv(BytesIO(content), encoding="utf-8-sig", **options)
+    except UnicodeDecodeError:
+        return pd.read_csv(BytesIO(content), encoding="cp1252", **options)
 
 
 def prepare_cleaned_dataset(
@@ -178,7 +185,7 @@ async def upload_dataset(file: UploadFile = File(...)):
 
     try:
         if extension == ".csv":
-            dataframe = pd.read_csv(BytesIO(content))
+            dataframe = read_csv_content(content)
         else:
             dataframe = pd.read_excel(BytesIO(content))
 

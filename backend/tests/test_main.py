@@ -1,6 +1,7 @@
 from io import BytesIO
 
 import pandas as pd
+import pytest
 from fastapi.testclient import TestClient
 
 import main
@@ -122,6 +123,37 @@ def test_upload_dataset_saves_valid_csv(tmp_path, monkeypatch):
     assert result["columns"] == 2
     assert result["column_names"] == ["name", "age"]
     assert (tmp_path / f'{result["dataset_id"]}.csv').exists()
+
+
+@pytest.mark.parametrize(
+    ("encoding", "text"),
+    [
+        ("utf-8-sig", "name,currency\nJos\u00e9,\u20ac\n"),
+        ("cp1252", "name,currency\nJos\u00e9,\u20ac\n"),
+    ],
+)
+def test_upload_reads_utf8_and_windows_encoded_csv_consistently(
+    tmp_path, monkeypatch, encoding, text
+):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    original = text.encode(encoding)
+
+    upload = client.post(
+        "/api/datasets/upload",
+        files={"file": ("encoded.csv", original, "text/csv")},
+    )
+    dataset_id = upload.json()["dataset_id"]
+    profile = client.get(f"/api/datasets/{dataset_id}/profile")
+    preview = client.get(f"/api/datasets/{dataset_id}/preview")
+
+    assert upload.status_code == 200
+    assert upload.json()["column_names"] == ["name", "currency"]
+    assert profile.status_code == 200
+    assert profile.json()["profile"]["total_columns"] == 2
+    assert preview.status_code == 200
+    assert preview.json()["rows"] == [{"name": "Jos\u00e9", "currency": "\u20ac"}]
+    assert (tmp_path / f"{dataset_id}.csv").read_bytes() == original
 
 
 def test_root_serves_workspace_and_static_assets():
