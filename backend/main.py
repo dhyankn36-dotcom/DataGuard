@@ -72,6 +72,10 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=12, max_length=1024)
 
 
+class RenameDatasetRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+
+
 def initialize_database() -> None:
     initialize_auth_database(DATABASE_PATH)
 
@@ -389,6 +393,65 @@ def delete_dataset(dataset_id: str, user: dict = Depends(current_user)):
         "message": "Dataset deleted successfully",
         "dataset_id": str(uuid.UUID(dataset_id)),
     }
+
+
+@app.patch("/api/datasets/{dataset_id}")
+def rename_dataset(
+    dataset_id: str,
+    payload: RenameDatasetRequest,
+    user: dict = Depends(current_user),
+):
+    try:
+        normalized_id = str(uuid.UUID(dataset_id))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid dataset ID.")
+
+    filename = payload.filename.strip()
+    if (
+        not filename
+        or Path(filename.replace("\\", "/")).name != filename
+        or any(ord(character) < 32 for character in filename)
+    ):
+        raise HTTPException(status_code=400, detail="Enter a valid filename.")
+
+    with connect_database(DATABASE_PATH) as connection:
+        dataset = connection.execute(
+            """
+            SELECT extension FROM datasets
+            WHERE dataset_id = ? AND user_id = ?
+            """,
+            (normalized_id, user["user_id"]),
+        ).fetchone()
+        if dataset is None:
+            raise HTTPException(status_code=404, detail="Dataset not found.")
+        if Path(filename).suffix.lower() != dataset["extension"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Keep the original {dataset['extension']} file extension.",
+            )
+        duplicate = connection.execute(
+            """
+            SELECT 1 FROM datasets
+            WHERE user_id = ? AND dataset_id != ?
+                AND original_filename = ? COLLATE NOCASE
+            LIMIT 1
+            """,
+            (user["user_id"], normalized_id, filename),
+        ).fetchone()
+        if duplicate:
+            raise HTTPException(
+                status_code=409,
+                detail="You already have a dataset with that filename.",
+            )
+        connection.execute(
+            """
+            UPDATE datasets SET original_filename = ?
+            WHERE dataset_id = ? AND user_id = ?
+            """,
+            (filename, normalized_id, user["user_id"]),
+        )
+
+    return {"dataset_id": normalized_id, "filename": filename}
 
 
 @app.post("/api/datasets/upload")

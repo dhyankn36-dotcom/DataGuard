@@ -55,6 +55,7 @@ Python virtual environments are excluded from Git.
 - `GET /api/admin/users` — administrator-only account directory (passwords and hashes are never returned).
 - `GET /api/datasets` — list the signed-in user's datasets.
 - `POST /api/datasets/upload` — upload a CSV or XLSX file (`file` form field) to the signed-in user's workspace.
+- `PATCH /api/datasets/{dataset_id}` — rename an owned dataset without changing the source file; the original extension must be kept.
 - `DELETE /api/datasets/{dataset_id}` — permanently delete an owned dataset.
 - `GET /api/datasets/{dataset_id}/profile` — retrieve the quality profile of an owned dataset.
 - `GET /api/datasets/{dataset_id}/report` — download an owned dataset's JSON quality report.

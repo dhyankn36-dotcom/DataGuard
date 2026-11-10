@@ -160,6 +160,10 @@ def test_datasets_are_private_and_only_admins_can_create_accounts():
     assert analyst.get("/api/datasets").json()["datasets"] == []
     assert analyst.get(f"/api/datasets/{dataset_id}/profile").status_code == 404
     assert analyst.delete(f"/api/datasets/{dataset_id}").status_code == 404
+    assert analyst.patch(
+        f"/api/datasets/{dataset_id}",
+        json={"filename": "stolen.csv"},
+    ).status_code == 404
     assert admin.get("/api/datasets").json()["datasets"][0]["filename"] == "private.csv"
 
     forbidden = analyst.post(
@@ -191,6 +195,65 @@ def test_legacy_files_are_not_imported_or_deleted(tmp_path, monkeypatch):
         "/api/datasets/00000000-0000-0000-0000-000000000001/profile"
     ).status_code == 404
     assert legacy_file.exists()
+
+
+def test_rename_dataset_updates_display_name_not_source_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    original = b"name,age\nAda,36\n"
+    upload = client.post(
+        "/api/datasets/upload",
+        files={"file": ("sample.csv", original, "text/csv")},
+    )
+    dataset_id = upload.json()["dataset_id"]
+    source = tmp_path / f"{dataset_id}.csv"
+
+    renamed = client.patch(
+        f"/api/datasets/{dataset_id}",
+        json={"filename": "Customers 2026.csv"},
+    )
+
+    assert renamed.status_code == 200
+    assert renamed.json() == {
+        "dataset_id": dataset_id,
+        "filename": "Customers 2026.csv",
+    }
+    assert client.get("/api/datasets").json()["datasets"][0]["filename"] == "Customers 2026.csv"
+    assert client.get(f"/api/datasets/{dataset_id}/profile").json()["filename"] == "Customers 2026.csv"
+    assert source.read_bytes() == original
+    assert not (tmp_path / "Customers 2026.csv").exists()
+
+
+def test_rename_dataset_rejects_bad_names_and_name_collisions(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    first = client.post(
+        "/api/datasets/upload",
+        files={"file": ("first.csv", b"name\nAda\n", "text/csv")},
+    ).json()["dataset_id"]
+    second = client.post(
+        "/api/datasets/upload",
+        files={"file": ("second.csv", b"name\nGrace\n", "text/csv")},
+    ).json()["dataset_id"]
+
+    wrong_extension = client.patch(
+        f"/api/datasets/{first}",
+        json={"filename": "renamed.xlsx"},
+    )
+    traversal = client.patch(
+        f"/api/datasets/{first}",
+        json={"filename": "../renamed.csv"},
+    )
+    collision = client.patch(
+        f"/api/datasets/{first}",
+        json={"filename": "SECOND.csv"},
+    )
+
+    assert wrong_extension.status_code == 400
+    assert traversal.status_code == 400
+    assert collision.status_code == 409
+    assert client.get("/api/datasets").json()["datasets"][0]["filename"] == "first.csv"
+    assert client.get(f"/api/datasets/{second}/profile").status_code == 200
 
 
 def test_clean_export_fills_missing_values_and_removes_duplicates(

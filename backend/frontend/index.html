@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=7">
-    <script src="/static/app.js?v=7" defer></script>
+    <link rel="stylesheet" href="/static/styles.css?v=8">
+    <script src="/static/app.js?v=8" defer></script>
   </head>
   <body>
     <main id="auth-screen" class="auth-screen">
@@ -130,6 +130,7 @@
             </div>
             <div class="dataset-actions">
               <a id="export-report" class="button button-secondary export-button" href="#" download>Export report</a>
+              <button id="rename-dataset-button" class="button button-secondary" type="button">Rename</button>
               <div class="view-switch" role="tablist" aria-label="Dataset view">
                 <button id="profile-tab" class="view-tab active" role="tab" aria-selected="true" type="button">Quality overview</button>
                 <button id="preview-tab" class="view-tab" role="tab" aria-selected="false" type="button">Data preview</button>
@@ -284,6 +285,26 @@
           <div class="account-form-actions">
             <button id="cancel-password-dialog" class="button button-secondary" type="button">Cancel</button>
             <button id="save-password-button" class="button button-primary" type="submit">Update password</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog id="rename-dialog" class="account-dialog" aria-labelledby="rename-dialog-title">
+        <form id="rename-form" class="account-form">
+          <div class="account-dialog-heading">
+            <div>
+              <p class="eyebrow">DATASET DETAILS</p>
+              <h2 id="rename-dialog-title">Rename dataset</h2>
+            </div>
+            <button id="close-rename-dialog" class="dialog-close" type="button" aria-label="Close dialog">×</button>
+          </div>
+          <p class="account-description">This only changes the display name. Your original data file stays unchanged.</p>
+          <label for="dataset-filename">Filename</label>
+          <input id="dataset-filename" name="filename" type="text" required maxlength="255" autocomplete="off">
+          <p id="rename-hint" class="account-hint">Keep the file extension unchanged.</p>
+          <p id="rename-message" class="account-message" role="status" hidden></p>
+          <div class="account-form-actions">
+            <button id="cancel-rename-dialog" class="button button-secondary" type="button">Cancel</button>
+            <button id="save-rename-button" class="button button-primary" type="submit">Save name</button>
           </div>
         </form>
       </dialog>

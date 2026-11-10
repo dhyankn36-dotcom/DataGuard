@@ -39,6 +39,11 @@ const elements = {
   confirmNewPassword: document.querySelector("#confirm-new-password"),
   passwordFormMessage: document.querySelector("#password-form-message"),
   savePasswordButton: document.querySelector("#save-password-button"),
+  renameDialog: document.querySelector("#rename-dialog"),
+  renameForm: document.querySelector("#rename-form"),
+  datasetFilename: document.querySelector("#dataset-filename"),
+  renameMessage: document.querySelector("#rename-message"),
+  saveRenameButton: document.querySelector("#save-rename-button"),
   fileInput: document.querySelector("#file-input"),
   dropZone: document.querySelector("#drop-zone"),
   uploadProgress: document.querySelector("#upload-progress"),
@@ -109,8 +114,10 @@ function showAuthScreen(message = "") {
   elements.manageAccountsButton.hidden = true;
   elements.accountDialog.close();
   elements.passwordDialog.close();
+  elements.renameDialog.close();
   elements.createAccountForm.reset();
   elements.changePasswordForm.reset();
+  elements.renameForm.reset();
   elements.notice.hidden = true;
   elements.appShell.hidden = true;
   elements.authScreen.hidden = false;
@@ -609,6 +616,44 @@ function closePasswordDialog() {
   elements.passwordFormMessage.classList.remove("success");
 }
 
+function closeRenameDialog() {
+  elements.renameDialog.close();
+  elements.renameForm.reset();
+  elements.renameMessage.hidden = true;
+  elements.renameMessage.textContent = "";
+  elements.renameMessage.classList.remove("success");
+}
+
+async function renameDataset(event) {
+  event.preventDefault();
+  const datasetId = state.activeId;
+  if (!datasetId) return;
+
+  elements.saveRenameButton.disabled = true;
+  elements.renameMessage.hidden = true;
+  try {
+    const result = await requestJson(`/api/datasets/${encodeURIComponent(datasetId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: elements.datasetFilename.value.trim() }),
+    });
+    state.displayNames.set(datasetId, result.filename);
+    state.datasets = state.datasets.map((dataset) => dataset.dataset_id === datasetId
+      ? { ...dataset, filename: result.filename }
+      : dataset);
+    renderDatasetList();
+    document.querySelector("#active-filename").textContent = result.filename;
+    closeRenameDialog();
+    showNotice(`Dataset renamed to ${result.filename}.`, true);
+  } catch (error) {
+    elements.renameMessage.textContent = error.message;
+    elements.renameMessage.classList.remove("success");
+    elements.renameMessage.hidden = false;
+  } finally {
+    elements.saveRenameButton.disabled = false;
+  }
+}
+
 async function changePassword(event) {
   event.preventDefault();
   const newPassword = elements.newPassword.value;
@@ -766,6 +811,22 @@ document.querySelector("#change-password-button").addEventListener("click", () =
   elements.currentPassword.focus();
 });
 elements.changePasswordForm.addEventListener("submit", changePassword);
+document.querySelector("#rename-dataset-button").addEventListener("click", () => {
+  const dataset = state.datasets.find((item) => item.dataset_id === state.activeId);
+  if (!dataset) return;
+  elements.datasetFilename.value =
+    state.displayNames.get(dataset.dataset_id) || dataset.filename;
+  elements.renameMessage.hidden = true;
+  elements.renameDialog.showModal();
+  elements.datasetFilename.focus();
+  elements.datasetFilename.select();
+});
+elements.renameForm.addEventListener("submit", renameDataset);
+document.querySelector("#close-rename-dialog").addEventListener("click", closeRenameDialog);
+document.querySelector("#cancel-rename-dialog").addEventListener("click", closeRenameDialog);
+elements.renameDialog.addEventListener("click", (event) => {
+  if (event.target === elements.renameDialog) closeRenameDialog();
+});
 document.querySelector("#close-password-dialog").addEventListener("click", closePasswordDialog);
 document.querySelector("#cancel-password-dialog").addEventListener("click", closePasswordDialog);
 elements.passwordDialog.addEventListener("click", (event) => {
