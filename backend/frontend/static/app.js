@@ -83,6 +83,13 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function calculateQualityScore(profile) {
+  const cellCount = profile.total_rows * profile.total_columns;
+  const missingRate = cellCount ? profile.total_missing_values / cellCount : 0;
+  const duplicateRate = profile.total_rows ? profile.duplicate_rows / profile.total_rows : 0;
+  return Math.max(0, Math.round(100 * (1 - missingRate) * (1 - duplicateRate)));
+}
+
 function showNotice(message, success = false) {
   elements.notice.textContent = message;
   elements.notice.classList.toggle("success", success);
@@ -269,10 +276,7 @@ function renderProfile(filename) {
   document.querySelector("#missing-caption").textContent =
     `${profile.total_rows ? ((profile.total_missing_values / (profile.total_rows * profile.total_columns)) * 100).toFixed(1) : "0.0"}% of all cells`;
 
-  const cellCount = profile.total_rows * profile.total_columns;
-  const missingRate = cellCount ? profile.total_missing_values / cellCount : 0;
-  const duplicateRate = profile.total_rows ? profile.duplicate_rows / profile.total_rows : 0;
-  const score = Math.max(0, Math.round(100 * (1 - missingRate) * (1 - duplicateRate)));
+  const score = calculateQualityScore(profile);
   document.querySelector("#quality-score").textContent = score;
   document.querySelector("#score-bar").style.width = `${score}%`;
   document.querySelector("#score-caption").textContent =
@@ -280,6 +284,34 @@ function renderProfile(filename) {
 
   renderColumns();
   renderInsights(profile);
+}
+
+async function copyQualitySummary() {
+  const profile = state.profile;
+  const dataset = state.datasets.find((item) => item.dataset_id === state.activeId);
+  if (!profile || !dataset) return;
+
+  const filename = state.displayNames.get(dataset.dataset_id) || dataset.filename;
+  const cellCount = profile.total_rows * profile.total_columns;
+  const missingRate = cellCount
+    ? ((profile.total_missing_values / cellCount) * 100).toFixed(1)
+    : "0.0";
+  const score = calculateQualityScore(profile);
+  const summary = [
+    `Dataset: ${filename}`,
+    `Rows: ${formatNumber(profile.total_rows)}`,
+    `Columns: ${formatNumber(profile.total_columns)}`,
+    `Quality score: ${score}/100`,
+    `Missing values: ${formatNumber(profile.total_missing_values)} (${missingRate}% of cells)`,
+    `Duplicate rows: ${formatNumber(profile.duplicate_rows)}`,
+  ].join("\n");
+
+  try {
+    await navigator.clipboard.writeText(summary);
+    showNotice("Quality summary copied to clipboard.", true);
+  } catch (error) {
+    showNotice(`Could not copy the quality summary: ${error.message}`);
+  }
 }
 
 function renderColumns() {
@@ -908,6 +940,7 @@ elements.dropZone.addEventListener("drop", (event) => {
 });
 document.querySelector("#column-search").addEventListener("input", renderColumns);
 document.querySelector("#column-quality-filter").addEventListener("change", renderColumns);
+document.querySelector("#copy-quality-summary").addEventListener("click", copyQualitySummary);
 elements.previewSearch.addEventListener("input", () => {
   state.previewSearch = elements.previewSearch.value.trim();
   state.previewOffset = 0;
