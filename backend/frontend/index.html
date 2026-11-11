@@ -226,9 +226,19 @@
             </div>
             <div class="preview-pagination">
               <span id="preview-page-label" class="preview-page-label"></span>
-              <div class="pagination-actions">
-                <button id="preview-previous" class="pagination-button" type="button" disabled>Previous</button>
-                <button id="preview-next" class="pagination-button" type="button">Next</button>
+              <div class="pagination-controls">
+                <label for="preview-page-size">Rows per page</label>
+                <select id="preview-page-size" class="clean-select">
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100" selected>100</option>
+                  <option value="250">250</option>
+                  <option value="500">500</option>
+                </select>
+                <div class="pagination-actions">
+                  <button id="preview-previous" class="pagination-button" type="button" disabled>Previous</button>
+                  <button id="preview-next" class="pagination-button" type="button">Next</button>
+                </div>
               </div>
             </div>
           </section>

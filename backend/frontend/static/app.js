@@ -1029,6 +1029,11 @@ document.querySelector("#preview-previous").addEventListener("click", () => {
 document.querySelector("#preview-next").addEventListener("click", () => {
   changePreviewPage(state.previewOffset + state.previewPageSize);
 });
+document.querySelector("#preview-page-size").addEventListener("change", (event) => {
+  state.previewPageSize = Number(event.target.value);
+  state.previewOffset = 0;
+  changePreviewPage(0);
+});
 elements.mobileDatasetSelect.addEventListener("change", (event) => {
   selectDataset(event.target.value);
 });
