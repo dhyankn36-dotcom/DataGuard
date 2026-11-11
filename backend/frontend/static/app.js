@@ -264,6 +264,8 @@ function renderProfile(filename) {
   document.querySelector("#total-columns").textContent = formatNumber(profile.total_columns);
   document.querySelector("#missing-values").textContent =
     formatNumber(profile.total_missing_values);
+  document.querySelector("#duplicate-rows").textContent =
+    formatNumber(profile.duplicate_rows);
   document.querySelector("#missing-caption").textContent =
     `${profile.total_rows ? ((profile.total_missing_values / (profile.total_rows * profile.total_columns)) * 100).toFixed(1) : "0.0"}% of all cells`;
 

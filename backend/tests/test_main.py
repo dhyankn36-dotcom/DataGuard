@@ -184,6 +184,31 @@ def test_datasets_are_private_and_only_admins_can_create_accounts():
     assert analyst.get("/api/admin/users").status_code == 403
 
 
+def test_dataset_summary_reports_core_quality_totals(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={"file": ("summary.csv", b"name,age\nAda,36\nAda,36\nBob,\n", "text/csv")},
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    summary = client.get(f"/api/datasets/{dataset_id}/summary")
+
+    assert summary.status_code == 200
+    assert summary.json() == {
+        "dataset_id": dataset_id,
+        "filename": "summary.csv",
+        "file_type": "CSV",
+        "size_bytes": len(b"name,age\nAda,36\nAda,36\nBob,\n"),
+        "rows": 3,
+        "columns": 2,
+        "column_names": ["name", "age"],
+        "total_missing_values": 1,
+        "duplicate_rows": 1,
+    }
+
+
 def test_legacy_files_are_not_imported_or_deleted(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
     legacy_file = tmp_path / "00000000-0000-0000-0000-000000000001.csv"
@@ -417,6 +442,36 @@ def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):
     assert preview.json()["rows"] == [{"name": "Grace", "age": None}]
     assert preview.json()["offset"] == 1
     assert preview.json()["has_more"] is False
+
+
+def test_preview_paginates_csv_records_containing_newlines(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={
+            "file": (
+                "sample.csv",
+                b'name,note\nAda,"line one\nline two"\nGrace,hello\nLin,hi\n',
+                "text/csv",
+            )
+        },
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    second_page = client.get(
+        f"/api/datasets/{dataset_id}/preview?limit=1&offset=1"
+    )
+    third_page = client.get(
+        f"/api/datasets/{dataset_id}/preview?limit=1&offset=2"
+    )
+
+    assert second_page.status_code == 200
+    assert second_page.json()["rows"] == [{"name": "Grace", "note": "hello"}]
+    assert second_page.json()["has_more"] is True
+    assert third_page.status_code == 200
+    assert third_page.json()["rows"] == [{"name": "Lin", "note": "hi"}]
+    assert third_page.json()["has_more"] is False
 
 
 def test_preview_paginates_xlsx_rows(tmp_path, monkeypatch):
