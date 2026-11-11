@@ -328,15 +328,17 @@ function renderColumns() {
   const sortBy = document.querySelector("#column-sort").value;
   const body = document.querySelector("#column-rows");
   body.replaceChildren();
+  const hasQualityIssue = (column) => (
+    column.missing_values > 0
+    || column.is_empty
+    || column.is_constant
+    || column.potential_outliers > 0
+    || column.non_finite_values > 0
+  );
   const qualityMatches = {
     all: () => true,
-    issues: (column) => (
-      column.missing_values > 0
-      || column.is_empty
-      || column.is_constant
-      || column.potential_outliers > 0
-      || column.non_finite_values > 0
-    ),
+    issues: hasQualityIssue,
+    clean: (column) => !hasQualityIssue(column),
     missing: (column) => column.missing_values > 0,
     empty: (column) => column.is_empty,
     constant: (column) => column.is_constant,
