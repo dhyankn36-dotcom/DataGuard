@@ -26,6 +26,7 @@ The FastAPI application serves the web interface and exposes endpoints for datas
 - **CSV and XLSX uploads:** Accept supported tabular files up to 20 MB.
 - **Dataset management:** List uploaded datasets and delete a selected dataset.
 - **Data preview:** Inspect records using paginated requests.
+- **Preview-page exports:** Download the currently displayed (and searched) preview page as a CSV.
 - **Quality profiling:** Review missing values, duplicate records, numeric statistics, and potential outliers through the profiling service.
 - **JSON reports:** Generate a downloadable report with dataset metadata and its quality profile.
 - **Shareable summaries:** Copy a concise quality summary, including the score, missing-value rate, and duplicate count, to the clipboard.

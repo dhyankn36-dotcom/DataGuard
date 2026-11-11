@@ -9,6 +9,8 @@ const state = {
   previewRequest: 0,
   previewOffset: 0,
   previewTotalRows: null,
+  previewColumns: [],
+  previewRows: [],
   previewSearch: "",
   previewSearchTimer: null,
   previewPageSize: 100,
@@ -116,8 +118,11 @@ function showAuthScreen(message = "") {
   state.columns = [];
   state.previewSearch = "";
   state.previewTotalRows = null;
+  state.previewColumns = [];
+  state.previewRows = [];
   clearTimeout(state.previewSearchTimer);
   elements.previewSearch.value = "";
+  document.querySelector("#export-preview-page").disabled = true;
   state.displayNames.clear();
   elements.datasetList.replaceChildren();
   elements.datasetCount.textContent = "0";
@@ -230,6 +235,9 @@ function renderDatasetList() {
 async function selectDataset(datasetId) {
   const requestId = ++state.selectionRequest;
   state.activeId = datasetId;
+  state.previewColumns = [];
+  state.previewRows = [];
+  document.querySelector("#export-preview-page").disabled = true;
   state.previewOffset = 0;
   state.previewTotalRows = null;
   state.previewSearch = "";
@@ -566,6 +574,9 @@ async function renderPreview(offset = state.previewOffset, datasetId = state.act
   state.previewTotalRows = result.total_rows ?? state.profile.total_rows;
   const head = document.querySelector("#preview-head");
   const body = document.querySelector("#preview-rows");
+  state.previewColumns = result.columns;
+  state.previewRows = result.rows;
+  document.querySelector("#export-preview-page").disabled = result.rows.length === 0;
   head.replaceChildren();
   body.replaceChildren();
   const headerRow = document.createElement("tr");
@@ -598,6 +609,30 @@ async function renderPreview(offset = state.previewOffset, datasetId = state.act
   document.querySelector("#preview-previous").disabled = result.offset === 0;
   document.querySelector("#preview-next").disabled =
     !result.has_more || result.offset + result.rows.length >= state.previewTotalRows;
+}
+
+function exportPreviewPage() {
+  if (!state.previewColumns.length || !state.previewRows.length || !state.activeId) return;
+
+  const rows = [
+    state.previewColumns,
+    ...state.previewRows.map((record) => (
+      state.previewColumns.map((column) => record[column])
+    )),
+  ];
+  const csv = rows
+    .map((row) => row.map(csvCell).join(","))
+    .join("\r\n");
+  const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+  const downloadUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = `dataguard-preview-${state.activeId}-rows-${state.previewOffset + 1}-${state.previewOffset + state.previewRows.length}.csv`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+  showNotice(`Exported ${formatNumber(state.previewRows.length)} preview rows.`, true);
 }
 
 async function changePreviewPage(offset) {
@@ -1034,6 +1069,7 @@ document.querySelector("#preview-page-size").addEventListener("change", (event) 
   state.previewOffset = 0;
   changePreviewPage(0);
 });
+document.querySelector("#export-preview-page").addEventListener("click", exportPreviewPage);
 elements.mobileDatasetSelect.addEventListener("change", (event) => {
   selectDataset(event.target.value);
 });
