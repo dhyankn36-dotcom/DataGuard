@@ -182,6 +182,8 @@ The preview endpoint accepts:
   (maximum 200 characters); when present, `total_rows` reports the number of
   matching rows.
 
+The web preview lets you choose 25, 50, 100, 250, or 500 rows per page.
+
 Example:
 
 ```text
