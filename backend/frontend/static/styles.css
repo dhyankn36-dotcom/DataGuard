@@ -195,6 +195,7 @@ h1 { margin-bottom: 8px; font: 700 28px Manrope, sans-serif; letter-spacing: -1.
 .search-box input::placeholder { color: #a0a9b5; }
 .column-filter-controls { display: flex; align-items: center; gap: 8px; }
 .column-filter-controls .clean-select { min-height: 30px; max-width: 160px; font-size: 9px; }
+.column-filter-controls .button { min-height: 30px; padding: 0 9px; font-size: 9px; }
 .table-scroll { overflow: auto; }
 table { width: 100%; border-collapse: collapse; text-align: left; }
 thead { background: #f8f9fb; }
@@ -304,4 +305,5 @@ th:first-child, td:first-child { padding-left: 18px; }
   .search-box { width: 100%; }
   .column-filter-controls { flex-wrap: wrap; }
   .column-filter-controls .clean-select, .column-filter-controls .search-box { min-width: 0; flex: 1 1 120px; }
+  .column-filter-controls .button { flex: 1 1 100%; }
 }
