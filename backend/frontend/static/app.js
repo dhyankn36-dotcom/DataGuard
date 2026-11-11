@@ -322,12 +322,10 @@ async function copyQualitySummary() {
   }
 }
 
-function renderColumns() {
+function getVisibleColumns() {
   const search = document.querySelector("#column-search").value.trim().toLowerCase();
   const qualityFilter = document.querySelector("#column-quality-filter").value;
   const sortBy = document.querySelector("#column-sort").value;
-  const body = document.querySelector("#column-rows");
-  body.replaceChildren();
   const hasQualityIssue = (column) => (
     column.missing_values > 0
     || column.is_empty
@@ -359,6 +357,14 @@ function renderColumns() {
     const getValue = sortValues[sortBy];
     visible.sort((left, right) => getValue(right) - getValue(left));
   }
+  return visible;
+}
+
+function renderColumns() {
+  const visible = getVisibleColumns();
+  const body = document.querySelector("#column-rows");
+  body.replaceChildren();
+  document.querySelector("#export-column-quality").disabled = visible.length === 0;
   document.querySelector("#no-columns").hidden = visible.length > 0;
 
   for (const column of visible) {
@@ -420,7 +426,7 @@ function csvCell(value) {
 }
 
 function exportColumnQuality() {
-  const columns = state.columns;
+  const columns = getVisibleColumns();
   if (!columns.length || !state.activeId) return;
 
   const headers = [
@@ -467,7 +473,7 @@ function exportColumnQuality() {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
-  showNotice(`Exported quality details for ${formatNumber(columns.length)} columns.`, true);
+  showNotice(`Exported quality details for ${formatNumber(columns.length)} visible columns.`, true);
 }
 
 function renderInsights(profile) {
