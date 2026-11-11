@@ -193,6 +193,8 @@ h1 { margin-bottom: 8px; font: 700 28px Manrope, sans-serif; letter-spacing: -1.
 .search-box span { font-size: 17px; line-height: 1; }
 .search-box input { width: 100%; min-width: 0; border: 0; outline: 0; color: #4b5668; font-size: 9px; }
 .search-box input::placeholder { color: #a0a9b5; }
+.column-filter-controls { display: flex; align-items: center; gap: 8px; }
+.column-filter-controls .clean-select { min-height: 30px; max-width: 180px; font-size: 9px; }
 .table-scroll { overflow: auto; }
 table { width: 100%; border-collapse: collapse; text-align: left; }
 thead { background: #f8f9fb; }
@@ -287,6 +289,7 @@ th:first-child, td:first-child { padding-left: 18px; }
   .view-switch { align-self: stretch; }
   .view-tab { flex: 1; }
   .panel-heading { padding-right: 12px; padding-left: 12px; }
+  .column-filter-controls { width: 100%; }
   th { padding-right: 9px; padding-left: 9px; }
   td { padding-right: 9px; padding-left: 9px; }
   th:first-child, td:first-child { padding-left: 12px; }
@@ -299,4 +302,5 @@ th:first-child, td:first-child { padding-left: 18px; }
   .metric-icon { width: 22px; height: 22px; }
   .panel-heading { align-items: flex-start; flex-direction: column; }
   .search-box { width: 100%; }
+  .column-filter-controls .clean-select, .column-filter-controls .search-box { min-width: 0; flex: 1 1 0; }
 }

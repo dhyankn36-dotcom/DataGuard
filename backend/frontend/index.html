@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=10">
-    <script src="/static/app.js?v=10" defer></script>
+    <link rel="stylesheet" href="/static/styles.css?v=11">
+    <script src="/static/app.js?v=11" defer></script>
   </head>
   <body>
     <main id="auth-screen" class="auth-screen">
@@ -173,14 +173,26 @@
               <section id="quality" class="panel column-panel">
                 <div class="panel-heading">
                   <div><h2>Column quality</h2><p>A closer look at each field in your dataset.</p></div>
-                  <label class="search-box"><span aria-hidden="true">⌕</span><input id="column-search" type="search" placeholder="Find a column" aria-label="Find a column"></label>
+                  <div class="column-filter-controls">
+                    <label class="sr-only" for="column-quality-filter">Filter columns by quality</label>
+                    <select id="column-quality-filter" class="clean-select">
+                      <option value="all">All columns</option>
+                      <option value="issues">Any quality issue</option>
+                      <option value="missing">Missing values</option>
+                      <option value="empty">Empty columns</option>
+                      <option value="constant">Constant values</option>
+                      <option value="outliers">Potential outliers</option>
+                      <option value="non-finite">Non-finite numbers</option>
+                    </select>
+                    <label class="search-box"><span aria-hidden="true">⌕</span><input id="column-search" type="search" placeholder="Find a column" aria-label="Find a column"></label>
+                  </div>
                 </div>
                 <div class="table-scroll">
                   <table>
                     <thead><tr><th>Column</th><th>Type</th><th>Completeness / missing</th><th>Unique</th><th>Duplicates</th><th>Numeric summary</th></tr></thead>
                     <tbody id="column-rows"></tbody>
                   </table>
-                  <div id="no-columns" class="table-empty" hidden>No columns match your search.</div>
+                  <div id="no-columns" class="table-empty" hidden>No columns match the current search and quality filter.</div>
                 </div>
               </section>
               <aside class="panel insight-panel">

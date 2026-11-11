@@ -284,9 +284,27 @@ function renderProfile(filename) {
 
 function renderColumns() {
   const search = document.querySelector("#column-search").value.trim().toLowerCase();
+  const qualityFilter = document.querySelector("#column-quality-filter").value;
   const body = document.querySelector("#column-rows");
   body.replaceChildren();
-  const visible = state.columns.filter((column) => column.name.toLowerCase().includes(search));
+  const qualityMatches = {
+    all: () => true,
+    issues: (column) => (
+      column.missing_values > 0
+      || column.is_empty
+      || column.is_constant
+      || column.potential_outliers > 0
+      || column.non_finite_values > 0
+    ),
+    missing: (column) => column.missing_values > 0,
+    empty: (column) => column.is_empty,
+    constant: (column) => column.is_constant,
+    outliers: (column) => column.potential_outliers > 0,
+    "non-finite": (column) => column.non_finite_values > 0,
+  }[qualityFilter];
+  const visible = state.columns.filter((column) => (
+    column.name.toLowerCase().includes(search) && qualityMatches(column)
+  ));
   document.querySelector("#no-columns").hidden = visible.length > 0;
 
   for (const column of visible) {
@@ -889,6 +907,7 @@ elements.dropZone.addEventListener("drop", (event) => {
   uploadFile(event.dataTransfer.files[0]);
 });
 document.querySelector("#column-search").addEventListener("input", renderColumns);
+document.querySelector("#column-quality-filter").addEventListener("change", renderColumns);
 elements.previewSearch.addEventListener("input", () => {
   state.previewSearch = elements.previewSearch.value.trim();
   state.previewOffset = 0;
