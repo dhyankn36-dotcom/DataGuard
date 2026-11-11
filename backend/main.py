@@ -313,6 +313,34 @@ def read_dataset(file_path: Path, **options) -> pd.DataFrame:
     return pd.read_excel(file_path, **options)
 
 
+def read_csv_preview_page(file_path: Path, limit: int, offset: int) -> pd.DataFrame:
+    page_parts = []
+    remaining_offset = offset
+    remaining_rows = limit + 1
+    columns = None
+
+    with pd.read_csv(file_path, chunksize=10_000) as chunks:
+        for chunk in chunks:
+            columns = chunk.columns
+            if remaining_offset >= len(chunk):
+                remaining_offset -= len(chunk)
+                continue
+
+            page_part = chunk.iloc[
+                remaining_offset : remaining_offset + remaining_rows
+            ]
+            remaining_offset = 0
+            if not page_part.empty:
+                page_parts.append(page_part)
+                remaining_rows -= len(page_part)
+            if remaining_rows == 0:
+                break
+
+    if page_parts:
+        return pd.concat(page_parts, ignore_index=True)
+    return pd.DataFrame(columns=columns)
+
+
 def prepare_cleaned_dataset(
     dataframe: pd.DataFrame,
     missing_strategy: str,
@@ -564,11 +592,14 @@ def preview_dataset(
             page = dataframe.iloc[offset : offset + limit]
             has_more = offset + len(page) < total_rows
         else:
-            dataframe = read_dataset(
-                file_path,
-                nrows=limit + 1,
-                skiprows=range(1, offset + 1),
-            )
+            if file_path.suffix.lower() == ".csv":
+                dataframe = read_csv_preview_page(file_path, limit, offset)
+            else:
+                dataframe = read_dataset(
+                    file_path,
+                    nrows=limit + 1,
+                    skiprows=range(1, offset + 1),
+                )
             has_more = len(dataframe) > limit
             page = dataframe.iloc[:limit]
             total_rows = None

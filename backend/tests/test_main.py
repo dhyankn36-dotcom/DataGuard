@@ -419,6 +419,36 @@ def test_list_profile_and_preview_dataset(tmp_path, monkeypatch):
     assert preview.json()["has_more"] is False
 
 
+def test_preview_paginates_csv_records_containing_newlines(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={
+            "file": (
+                "sample.csv",
+                b'name,note\nAda,"line one\nline two"\nGrace,hello\nLin,hi\n',
+                "text/csv",
+            )
+        },
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    second_page = client.get(
+        f"/api/datasets/{dataset_id}/preview?limit=1&offset=1"
+    )
+    third_page = client.get(
+        f"/api/datasets/{dataset_id}/preview?limit=1&offset=2"
+    )
+
+    assert second_page.status_code == 200
+    assert second_page.json()["rows"] == [{"name": "Grace", "note": "hello"}]
+    assert second_page.json()["has_more"] is True
+    assert third_page.status_code == 200
+    assert third_page.json()["rows"] == [{"name": "Lin", "note": "hi"}]
+    assert third_page.json()["has_more"] is False
+
+
 def test_preview_paginates_xlsx_rows(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
     workbook = BytesIO()
