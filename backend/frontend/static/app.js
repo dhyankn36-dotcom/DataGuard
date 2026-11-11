@@ -317,6 +317,7 @@ async function copyQualitySummary() {
 function renderColumns() {
   const search = document.querySelector("#column-search").value.trim().toLowerCase();
   const qualityFilter = document.querySelector("#column-quality-filter").value;
+  const sortBy = document.querySelector("#column-sort").value;
   const body = document.querySelector("#column-rows");
   body.replaceChildren();
   const qualityMatches = {
@@ -337,6 +338,17 @@ function renderColumns() {
   const visible = state.columns.filter((column) => (
     column.name.toLowerCase().includes(search) && qualityMatches(column)
   ));
+  const sortValues = {
+    missing: (column) => column.missing_values,
+    completeness: (column) => column.missing_percentage,
+    unique: (column) => column.unique_values,
+    duplicates: (column) => column.duplicate_values,
+    outliers: (column) => column.potential_outliers || 0,
+  };
+  if (sortBy !== "original" && sortValues[sortBy]) {
+    const getValue = sortValues[sortBy];
+    visible.sort((left, right) => getValue(right) - getValue(left));
+  }
   document.querySelector("#no-columns").hidden = visible.length > 0;
 
   for (const column of visible) {
@@ -940,6 +952,7 @@ elements.dropZone.addEventListener("drop", (event) => {
 });
 document.querySelector("#column-search").addEventListener("input", renderColumns);
 document.querySelector("#column-quality-filter").addEventListener("change", renderColumns);
+document.querySelector("#column-sort").addEventListener("change", renderColumns);
 document.querySelector("#copy-quality-summary").addEventListener("click", copyQualitySummary);
 elements.previewSearch.addEventListener("input", () => {
   state.previewSearch = elements.previewSearch.value.trim();
