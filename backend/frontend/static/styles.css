@@ -166,13 +166,14 @@ h1 { margin-bottom: 8px; font: 700 28px Manrope, sans-serif; letter-spacing: -1.
 .button-danger { min-height: 31px; border: 1px solid #f0d7d4; background: #fff; color: #a64e43; font-size: 9px; }
 .button-danger:hover { border-color: #dbaaa3; background: #fff7f6; }
 
-.metrics-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; margin-bottom: 16px; }
+.metrics-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 13px; margin-bottom: 16px; }
 .metric-card, .panel { border: 1px solid #e9edf2; border-radius: 9px; background: #fff; box-shadow: 0 2px 7px #26344906; }
 .metric-card { min-height: 129px; padding: 15px 16px 13px; }
 .metric-topline { display: flex; align-items: center; justify-content: space-between; color: #8994a4; font-size: 8px; font-weight: 700; letter-spacing: .8px; }
 .metric-icon { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 7px; font-size: 15px; }
 .score-icon { background: #e9f5f2; color: #298b7b; }
 .rows-icon { background: #eef2fc; color: #657fc4; }
+.duplicates-icon { background: #fff3e8; color: #bd7740; }
 .columns-icon { background: #f2effb; color: #8873bd; }
 .missing-icon { background: #fff3e9; color: #d6914d; }
 .score-row { display: flex; align-items: baseline; gap: 5px; margin: 2px 0 7px; }
@@ -253,7 +254,7 @@ th:first-child, td:first-child { padding-left: 18px; }
 @media (max-width: 1100px) {
   .sidebar { width: 215px; }
   .main-content { margin-left: 215px; padding-right: 28px; padding-left: 28px; }
-  .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .content-grid { grid-template-columns: minmax(0, 1.6fr) minmax(210px, .8fr); }
 }
 @media (max-width: 760px) {
@@ -277,6 +278,7 @@ th:first-child, td:first-child { padding-left: 18px; }
   .file-hint { display: none; }
   .drop-zone { min-height: 89px; padding: 13px; gap: 11px; }
   .content-grid { grid-template-columns: 1fr; }
+  .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dataset-title-row { align-items: flex-start; flex-direction: column; }
   .dataset-actions { width: 100%; }
   .clean-export-controls { width: 100%; }
