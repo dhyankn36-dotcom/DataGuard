@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=12">
-    <script src="/static/app.js?v=12" defer></script>
+    <link rel="stylesheet" href="/static/styles.css?v=13">
+    <script src="/static/app.js?v=13" defer></script>
   </head>
   <body>
     <main id="auth-screen" class="auth-screen">
@@ -184,6 +184,15 @@
                       <option value="constant">Constant values</option>
                       <option value="outliers">Potential outliers</option>
                       <option value="non-finite">Non-finite numbers</option>
+                    </select>
+                    <label class="sr-only" for="column-sort">Sort columns</label>
+                    <select id="column-sort" class="clean-select">
+                      <option value="original">Dataset order</option>
+                      <option value="missing">Most missing</option>
+                      <option value="completeness">Lowest completeness</option>
+                      <option value="unique">Most unique</option>
+                      <option value="duplicates">Most duplicate values</option>
+                      <option value="outliers">Most outliers</option>
                     </select>
                     <label class="search-box"><span aria-hidden="true">⌕</span><input id="column-search" type="search" placeholder="Find a column" aria-label="Find a column"></label>
                   </div>
