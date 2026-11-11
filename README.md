@@ -157,6 +157,7 @@ signed-in user; admins can manage accounts.
 | `PATCH` | `/api/datasets/{dataset_id}` | Rename an owned dataset without changing its source file |
 | `DELETE` | `/api/datasets/{dataset_id}` | Permanently delete an owned dataset |
 | `GET` | `/api/datasets/{dataset_id}/preview` | Retrieve a paginated preview of an owned dataset |
+| `GET` | `/api/datasets/{dataset_id}/summary` | Retrieve a concise overview of row, column, and data quality counts |
 | `GET` | `/api/datasets/{dataset_id}/profile` | Retrieve the quality profile of an owned dataset |
 | `GET` | `/api/datasets/{dataset_id}/report` | Download a JSON quality report for an owned dataset |
 | `GET` | `/api/datasets/{dataset_id}/cleaned` | Download a cleaned CSV export of an owned dataset |

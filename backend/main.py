@@ -620,6 +620,40 @@ def preview_dataset(
         )
 
 
+@app.get("/api/datasets/{dataset_id}/summary")
+def get_dataset_summary(dataset_id: str, user: dict = Depends(current_user)):
+    file_path = find_dataset(dataset_id, user["user_id"])
+    try:
+        dataframe = read_dataset(file_path)
+        filename = original_dataset_filename(dataset_id, user["user_id"])
+        with connect_database(DATABASE_PATH) as connection:
+            row = connection.execute(
+                """
+                SELECT extension, size_bytes
+                FROM datasets
+                WHERE dataset_id = ? AND user_id = ?
+                """,
+                (str(uuid.UUID(dataset_id)), user["user_id"]),
+            ).fetchone()
+
+        return {
+            "dataset_id": str(uuid.UUID(dataset_id)),
+            "filename": filename,
+            "file_type": row["extension"][1:].upper() if row else "UNKNOWN",
+            "size_bytes": row["size_bytes"] if row else 0,
+            "rows": len(dataframe),
+            "columns": len(dataframe.columns),
+            "column_names": dataframe.columns.tolist(),
+            "total_missing_values": int(dataframe.isna().sum().sum()),
+            "duplicate_rows": int(dataframe.duplicated().sum()),
+        }
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not summarize this dataset.",
+        )
+
+
 @app.get("/api/datasets/{dataset_id}/profile")
 def get_dataset_profile(dataset_id: str, user: dict = Depends(current_user)):
     file_path = find_dataset(dataset_id, user["user_id"])
