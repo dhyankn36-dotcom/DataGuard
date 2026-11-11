@@ -28,6 +28,7 @@ The FastAPI application serves the web interface and exposes endpoints for datas
 - **Data preview:** Inspect records using paginated requests.
 - **Quality profiling:** Review missing values, duplicate records, numeric statistics, and potential outliers through the profiling service.
 - **JSON reports:** Generate a downloadable report with dataset metadata and its quality profile.
+- **Shareable summaries:** Copy a concise quality summary, including the score, missing-value rate, and duplicate count, to the clipboard.
 - **Cleaned exports:** Download a transformed CSV using configurable missing-value and duplicate-row options.
 - **Original-file preservation:** Cleaning operations work on a DataFrame copy; the uploaded source file is not modified.
 - **Health endpoint:** Check whether the API is responding.
