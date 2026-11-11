@@ -403,6 +403,63 @@ function renderColumns() {
   }
 }
 
+function csvCell(value) {
+  const text = value == null ? "" : String(value);
+  const safeText = /^[\s]*[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${safeText.replaceAll('"', '""')}"`;
+}
+
+function exportColumnQuality() {
+  const columns = state.columns;
+  if (!columns.length || !state.activeId) return;
+
+  const headers = [
+    "column",
+    "data_type",
+    "missing_values",
+    "missing_percentage",
+    "unique_values",
+    "duplicate_values",
+    "is_empty",
+    "is_constant",
+    "non_finite_values",
+    "potential_outliers",
+    "mean",
+    "median",
+    "minimum",
+    "maximum",
+  ];
+  const rows = columns.map((column) => [
+    column.name,
+    column.data_type,
+    column.missing_values,
+    column.missing_percentage,
+    column.unique_values,
+    column.duplicate_values,
+    column.is_empty,
+    column.is_constant,
+    column.non_finite_values,
+    column.potential_outliers,
+    column.statistics?.mean,
+    column.statistics?.median,
+    column.statistics?.minimum,
+    column.statistics?.maximum,
+  ]);
+  const csv = [headers, ...rows]
+    .map((row) => row.map(csvCell).join(","))
+    .join("\r\n");
+  const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+  const downloadUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = `dataguard-column-quality-${state.activeId}.csv`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+  showNotice(`Exported quality details for ${formatNumber(columns.length)} columns.`, true);
+}
+
 function renderInsights(profile) {
   const container = document.querySelector("#insights-list");
   container.replaceChildren();
@@ -953,6 +1010,7 @@ elements.dropZone.addEventListener("drop", (event) => {
 document.querySelector("#column-search").addEventListener("input", renderColumns);
 document.querySelector("#column-quality-filter").addEventListener("change", renderColumns);
 document.querySelector("#column-sort").addEventListener("change", renderColumns);
+document.querySelector("#export-column-quality").addEventListener("click", exportColumnQuality);
 document.querySelector("#copy-quality-summary").addEventListener("click", copyQualitySummary);
 elements.previewSearch.addEventListener("input", () => {
   state.previewSearch = elements.previewSearch.value.trim();
