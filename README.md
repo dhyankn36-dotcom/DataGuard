@@ -131,9 +131,9 @@ Sessions use expiring, HTTP-only cookies. For an HTTPS deployment, set
 `DATAGUARD_COOKIE_SECURE=true` before starting the API. The default is suitable
 for local HTTP development only. Dataset records are private to the account
 that uploaded them. The SQLite database is stored at
-`backend/dataguard.sqlite3` by default; set `DATAGUARD_DATABASE_PATH` to use a
-different location. Uploaded CSV and XLSX files are limited to 20 MB and
-stored in `datasets/`.
+`dataguard.sqlite3` in the repository root by default; set
+`DATAGUARD_DATABASE_PATH` to use a different location. Uploaded CSV and XLSX
+files are limited to 20 MB and stored in `datasets/`.
 
 Files already present in `datasets/` are not imported into user accounts and
 are not deleted automatically. Back up or remove them deliberately before
