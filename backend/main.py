@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import secrets
 import sqlite3
 import time
@@ -40,6 +41,7 @@ DATABASE_PATH = Path(
 MAX_FILE_SIZE = 20 * 1024 * 1024
 ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
 SESSION_COOKIE = "dataguard_session"
+CSV_FORMULA_PREFIX = re.compile(r"^[\s]*[=+\-@]")
 
 
 def cookie_secure_setting() -> bool:
@@ -311,6 +313,16 @@ def read_dataset(file_path: Path, **options) -> pd.DataFrame:
     if file_path.suffix.lower() == ".csv":
         return pd.read_csv(file_path, **options)
     return pd.read_excel(file_path, **options)
+
+
+def escape_csv_formulas(dataframe: pd.DataFrame) -> pd.DataFrame:
+    return dataframe.map(
+        lambda value: (
+            f"'{value}"
+            if isinstance(value, str) and CSV_FORMULA_PREFIX.match(value)
+            else value
+        )
+    )
 
 
 def read_csv_preview_page(file_path: Path, limit: int, offset: int) -> pd.DataFrame:
@@ -737,7 +749,7 @@ def download_cleaned_dataset(
             "X-DataGuard-Filled-Values": str(filled_values),
         }
         return Response(
-            content=cleaned.to_csv(index=False, na_rep=""),
+            content=escape_csv_formulas(cleaned).to_csv(index=False, na_rep=""),
             media_type="text/csv",
             headers=headers,
         )

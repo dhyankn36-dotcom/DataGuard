@@ -210,7 +210,8 @@ GET /api/datasets/{dataset_id}/cleaned?missing_strategy=fill_median_mode&remove_
 
 The response is a CSV download and includes `X-DataGuard-*` headers with
 original/exported row counts and the number of removed or filled values. The
-original uploaded dataset remains unchanged.
+original uploaded dataset remains unchanged. Text cells beginning with
+spreadsheet formula markers are escaped in the downloaded CSV.
 
 ## Tests
 

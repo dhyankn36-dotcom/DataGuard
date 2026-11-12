@@ -371,6 +371,26 @@ def test_clean_export_leaves_all_empty_columns_unfilled(tmp_path, monkeypatch):
     assert cleaned["notes"].isna().all()
 
 
+def test_clean_export_escapes_spreadsheet_formulas_without_changing_source(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    original = b"expression,description\n=1+1,plain\n @SUM(A1:A2),text\n"
+    upload = client.post(
+        "/api/datasets/upload",
+        files={"file": ("sample.csv", original, "text/csv")},
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    response = client.get(f"/api/datasets/{dataset_id}/cleaned")
+
+    assert response.status_code == 200
+    cleaned = pd.read_csv(BytesIO(response.content), dtype=str)
+    assert cleaned["expression"].tolist() == ["'=1+1", "' @SUM(A1:A2)"]
+    assert (tmp_path / f"{dataset_id}.csv").read_bytes() == original
+
+
 def test_clean_export_rejects_unknown_missing_strategy():
     client = TestClient(main.app)
 
