@@ -85,13 +85,6 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function calculateQualityScore(profile) {
-  const cellCount = profile.total_rows * profile.total_columns;
-  const missingRate = cellCount ? profile.total_missing_values / cellCount : 0;
-  const duplicateRate = profile.total_rows ? profile.duplicate_rows / profile.total_rows : 0;
-  return Math.max(0, Math.round(100 * (1 - missingRate) * (1 - duplicateRate)));
-}
-
 function showNotice(message, success = false) {
   elements.notice.textContent = message;
   elements.notice.classList.toggle("success", success);
@@ -284,7 +277,7 @@ function renderProfile(filename) {
   document.querySelector("#missing-caption").textContent =
     `${profile.total_rows ? ((profile.total_missing_values / (profile.total_rows * profile.total_columns)) * 100).toFixed(1) : "0.0"}% of all cells`;
 
-  const score = calculateQualityScore(profile);
+  const score = profile.quality_score;
   document.querySelector("#quality-score").textContent = score;
   document.querySelector("#score-bar").style.width = `${score}%`;
   document.querySelector("#score-caption").textContent =
@@ -304,7 +297,7 @@ async function copyQualitySummary() {
   const missingRate = cellCount
     ? ((profile.total_missing_values / cellCount) * 100).toFixed(1)
     : "0.0";
-  const score = calculateQualityScore(profile);
+  const score = profile.quality_score;
   const summary = [
     `Dataset: ${filename}`,
     `Rows: ${formatNumber(profile.total_rows)}`,

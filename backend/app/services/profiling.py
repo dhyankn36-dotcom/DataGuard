@@ -1,3 +1,4 @@
+import math
 
 import pandas as pd
 
@@ -58,10 +59,21 @@ def profile_dataset(df: pd.DataFrame):
 
         columns[str(column)] = column_info
 
+    duplicate_rows = int(df.duplicated().sum())
+    total_missing_values = int(df.isna().sum().sum())
+    cell_count = total_rows * total_columns
+    missing_rate = total_missing_values / cell_count if cell_count else 0
+    duplicate_rate = duplicate_rows / total_rows if total_rows else 0
+    quality_score = max(
+        0,
+        math.floor(100 * (1 - missing_rate) * (1 - duplicate_rate) + 0.5),
+    )
+
     return {
         "total_rows": total_rows,
         "total_columns": total_columns,
-        "duplicate_rows": int(df.duplicated().sum()),
-        "total_missing_values": int(df.isna().sum().sum()),
+        "duplicate_rows": duplicate_rows,
+        "total_missing_values": total_missing_values,
+        "quality_score": quality_score,
         "columns": columns
     }

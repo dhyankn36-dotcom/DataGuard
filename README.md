@@ -28,6 +28,7 @@ The FastAPI application serves the web interface and exposes endpoints for datas
 - **Data preview:** Inspect records using paginated requests.
 - **Preview-page exports:** Download the currently displayed (and searched) preview page as a CSV.
 - **Quality profiling:** Review missing values, duplicate records, numeric statistics, and potential outliers through the profiling service.
+- **Quality score:** View the same 0–100 completeness and duplicate-row score on the dashboard and in JSON reports.
 - **JSON reports:** Generate a downloadable report with dataset metadata and its quality profile.
 - **Shareable summaries:** Copy a concise quality summary, including the score, missing-value rate, and duplicate count, to the clipboard.
 - **Column quality exports:** Download the currently filtered and sorted columns, including missingness, uniqueness, duplicate counts, and numeric statistics, as a spreadsheet-friendly CSV.

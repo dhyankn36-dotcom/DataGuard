@@ -597,6 +597,7 @@ def test_download_report_includes_dataset_metadata_and_profile(
         "columns": 2,
     }
     assert report["profile"]["total_missing_values"] == 1
+    assert report["profile"]["quality_score"] == 75
     assert report["generated_at"].endswith("+00:00")
 
 
@@ -644,6 +645,17 @@ def test_profile_marks_empty_and_constant_columns():
     assert profile["columns"]["constant"]["is_empty"] is False
     assert profile["columns"]["constant"]["is_constant"] is True
     assert profile["columns"]["varied"]["is_constant"] is False
+
+
+def test_profile_quality_score_combines_missing_and_duplicate_rates():
+    dataframe = pd.DataFrame({
+        "name": ["Ada", "Ada", None],
+        "age": [36, 36, 45],
+    })
+
+    profile = main.profile_dataset(dataframe)
+
+    assert profile["quality_score"] == 56
 
 
 def test_profile_handles_infinite_numeric_values(tmp_path, monkeypatch):
