@@ -1,6 +1,9 @@
 .venv/
 __pycache__/
 *.py[cod]
+.env
+.env.*
+!.env.example
 
 datasets/*
 /dataguard.sqlite3
