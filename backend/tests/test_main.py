@@ -777,7 +777,7 @@ def test_cleaned_dataset_preview_returns_metrics_and_paginated_rows(
         files={
             "file": (
                 "preview-cleaning.csv",
-                b"name,score\\nAda,10\\nAda,10\\nBob,\\n",
+                b"name,score\nAda,10\nAda,10\nBob,\n",
                 "text/csv",
             )
         },
@@ -841,7 +841,7 @@ def test_cleaned_dataset_preview_search_is_case_insensitive_and_literal(
         files={
             "file": (
                 "search-preview.csv",
-                b"name,notes\\nAda,Research\\nAdam,Planning\\nBob,Review\\n",
+                b"name,notes\nAda,Research\nAdam,Planning\nBob,Review\n",
                 "text/csv",
             )
         },
