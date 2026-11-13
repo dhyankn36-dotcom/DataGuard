@@ -723,6 +723,7 @@ def preview_cleaned_dataset(
     remove_duplicates: bool = False,
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0, le=1_000_000),
+    search: str = Query(default="", max_length=200),
     user: dict = Depends(current_user),
 ):
     file_path = find_dataset(dataset_id, user["user_id"])
@@ -738,16 +739,31 @@ def preview_cleaned_dataset(
             missing_strategy,
             remove_duplicates,
         )
+        cleaned_rows = len(cleaned)
+        search = search.strip()
+        if search:
+            matches = cleaned.astype("string").apply(
+                lambda column: column.str.contains(
+                    search,
+                    case=False,
+                    na=False,
+                    regex=False,
+                )
+            ).any(axis=1)
+            cleaned = cleaned.loc[matches]
+
+        matching_rows = len(cleaned)
         page = cleaned.iloc[offset : offset + limit]
         return {
             "dataset_id": str(uuid.UUID(dataset_id)),
             "original_rows": len(dataframe),
-            "cleaned_rows": len(cleaned),
+            "cleaned_rows": cleaned_rows,
+            "matching_rows": matching_rows,
             "columns": cleaned.columns.tolist(),
             "rows": json.loads(page.to_json(orient="records", date_format="iso")),
             "limit": limit,
             "offset": offset,
-            "has_more": offset + len(page) < len(cleaned),
+            "has_more": offset + len(page) < matching_rows,
             "removed_incomplete_rows": removed_incomplete_rows,
             "removed_duplicate_rows": removed_duplicate_rows,
             "filled_values": filled_values,
