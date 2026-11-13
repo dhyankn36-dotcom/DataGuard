@@ -66,3 +66,20 @@ def test_profile_handles_a_dataframe_without_rows_or_columns():
     assert profile["total_missing_values"] == 0
     assert profile["quality_score"] == 100
     assert profile["columns"] == {}
+
+
+
+def test_profile_reports_unique_percentage_using_non_missing_values():
+    dataframe = pd.DataFrame(
+        {
+            "categories": ["A", "A", "B", None],
+            "all_unique": [1, 2, 3, 4],
+            "all_missing": [None, None, None, None],
+        }
+    )
+
+    profile = profile_dataset(dataframe)
+
+    assert profile["columns"]["categories"]["unique_percentage"] == 66.67
+    assert profile["columns"]["all_unique"]["unique_percentage"] == 100.0
+    assert profile["columns"]["all_missing"]["unique_percentage"] == 0
