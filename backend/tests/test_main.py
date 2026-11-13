@@ -765,3 +765,67 @@ def test_upload_dataset_rejects_unsupported_extension():
     assert response.json()["detail"] == (
         "Only CSV and XLSX files are supported."
     )
+
+
+def test_cleaned_dataset_preview_returns_metrics_and_paginated_rows(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={
+            "file": (
+                "preview-cleaning.csv",
+                b"name,score\\nAda,10\\nAda,10\\nBob,\\n",
+                "text/csv",
+            )
+        },
+    )
+    assert upload.status_code == 200
+    dataset_id = upload.json()["dataset_id"]
+
+    first_page = client.get(
+        f"/api/datasets/{dataset_id}/cleaned/preview",
+        params={
+            "missing_strategy": "fill_median_mode",
+            "remove_duplicates": "true",
+            "limit": 1,
+            "offset": 0,
+        },
+    )
+
+    assert first_page.status_code == 200, first_page.json()
+    data = first_page.json()
+    assert data["original_rows"] == 3
+    assert data["cleaned_rows"] == 2
+    assert data["removed_duplicate_rows"] == 1
+    assert data["filled_values"] == 1
+    assert data["remaining_missing_values"] == 0
+    assert len(data["rows"]) == 1
+    assert data["has_more"] is True
+
+    second_page = client.get(
+        f"/api/datasets/{dataset_id}/cleaned/preview",
+        params={
+            "missing_strategy": "fill_median_mode",
+            "remove_duplicates": "true",
+            "limit": 1,
+            "offset": 1,
+        },
+    )
+
+    assert second_page.status_code == 200, second_page.json()
+    assert second_page.json()["has_more"] is False
+    assert second_page.json()["rows"][0]["name"] == "Bob"
+
+
+def test_cleaned_dataset_preview_validates_pagination():
+    client = TestClient(main.app)
+
+    response = client.get(
+        "/api/datasets/00000000-0000-0000-0000-000000000000/cleaned/preview",
+        params={"limit": 0},
+    )
+
+    assert response.status_code == 422
