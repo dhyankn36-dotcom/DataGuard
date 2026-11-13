@@ -1,5 +1,7 @@
 # DataGuard
 
+![DataGuard CI](https://github.com/dhyankn36-dotcom/DataGuard/actions/workflows/ci.yml/badge.svg)
+
 <div align="center">
 
 ### A lightweight data quality workspace for CSV and Excel datasets
