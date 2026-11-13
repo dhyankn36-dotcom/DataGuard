@@ -21,6 +21,9 @@ def profile_dataset(df: pd.DataFrame):
                 (missing / total_rows) * 100, 2
             ) if total_rows else 0,
             "unique_values": int(series.nunique()),
+            "unique_percentage": round(
+                (series.nunique() / (total_rows - missing)) * 100, 2
+            ) if total_rows > missing else 0,
             "duplicate_values": int(series.duplicated().sum())
         }
         column_info["is_empty"] = total_rows > 0 and missing == total_rows
