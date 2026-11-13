@@ -829,3 +829,41 @@ def test_cleaned_dataset_preview_validates_pagination():
     )
 
     assert response.status_code == 422
+
+
+def test_cleaned_dataset_preview_search_is_case_insensitive_and_literal(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path)
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/datasets/upload",
+        files={
+            "file": (
+                "search-preview.csv",
+                b"name,notes\\nAda,Research\\nAdam,Planning\\nBob,Review\\n",
+                "text/csv",
+            )
+        },
+    )
+    assert upload.status_code == 200
+    dataset_id = upload.json()["dataset_id"]
+
+    response = client.get(
+        f"/api/datasets/{dataset_id}/cleaned/preview",
+        params={"search": "ad", "limit": 1},
+    )
+
+    assert response.status_code == 200, response.json()
+    data = response.json()
+    assert data["cleaned_rows"] == 3
+    assert data["matching_rows"] == 2
+    assert data["rows"][0]["name"] == "Ada"
+    assert data["has_more"] is True
+
+    literal_search = client.get(
+        f"/api/datasets/{dataset_id}/cleaned/preview",
+        params={"search": "%"},
+    )
+    assert literal_search.status_code == 200
+    assert literal_search.json()["matching_rows"] == 0
