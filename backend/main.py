@@ -716,6 +716,52 @@ def download_dataset_report(dataset_id: str, user: dict = Depends(current_user))
         )
 
 
+@app.get("/api/datasets/{dataset_id}/cleaned/preview")
+def preview_cleaned_dataset(
+    dataset_id: str,
+    missing_strategy: Literal["keep", "drop_rows", "fill_median_mode"] = "keep",
+    remove_duplicates: bool = False,
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0, le=1_000_000),
+    user: dict = Depends(current_user),
+):
+    file_path = find_dataset(dataset_id, user["user_id"])
+    try:
+        dataframe = read_dataset(file_path)
+        (
+            cleaned,
+            removed_incomplete_rows,
+            removed_duplicate_rows,
+            filled_values,
+        ) = prepare_cleaned_dataset(
+            dataframe,
+            missing_strategy,
+            remove_duplicates,
+        )
+        page = cleaned.iloc[offset : offset + limit]
+        return {
+            "dataset_id": str(uuid.UUID(dataset_id)),
+            "original_rows": len(dataframe),
+            "cleaned_rows": len(cleaned),
+            "columns": cleaned.columns.tolist(),
+            "rows": json.loads(page.to_json(orient="records", date_format="iso")),
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + len(page) < len(cleaned),
+            "removed_incomplete_rows": removed_incomplete_rows,
+            "removed_duplicate_rows": removed_duplicate_rows,
+            "filled_values": filled_values,
+            "remaining_missing_values": int(cleaned.isna().sum().sum()),
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not preview the cleaned dataset.",
+        )
+
+
 @app.get("/api/datasets/{dataset_id}/cleaned")
 def download_cleaned_dataset(
     dataset_id: str,
