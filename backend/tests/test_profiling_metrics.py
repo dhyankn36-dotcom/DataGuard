@@ -8,7 +8,7 @@ def test_profile_counts_iqr_outliers_only_for_sufficient_numeric_samples():
         pd.DataFrame(
             {
                 "with_outlier": [1, 2, 3, 100],
-                "small_sample": [1, 2, 100],
+                "small_sample": [1, 2, 100, None],
             }
         )
     )
