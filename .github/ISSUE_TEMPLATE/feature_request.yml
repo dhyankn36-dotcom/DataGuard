@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest an improvement to dataset inspection or cleaning
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature area
+      options:
+        - Dataset upload
+        - Data preview
+        - Quality metrics
+        - Missing-value handling
+        - Duplicate detection
+        - Cleaning and export
+        - Reports
+        - Authentication and privacy
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: How should this be validated?
+      description: Describe expected behavior or useful test cases.
+    validations:
+      required: false
