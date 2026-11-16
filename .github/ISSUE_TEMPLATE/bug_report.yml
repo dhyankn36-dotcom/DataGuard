@@ -1,0 +1,57 @@
+name: Bug report
+description: Report a reproducible DataGuard issue
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not attach confidential datasets or files containing personal information. Use a small synthetic example instead."
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - CSV upload
+        - XLSX upload
+        - Dataset preview
+        - Quality profiling
+        - Cleaning and export
+        - Authentication and sessions
+        - Dataset storage
+        - API
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: sample
+    attributes:
+      label: Synthetic sample or schema
+      description: Share column names and a few invented rows if needed. Do not upload private data.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "OS, Python and browser versions"
+    validations:
+      required: false
