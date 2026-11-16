@@ -4,6 +4,9 @@ import pandas as pd
 
 
 def profile_dataset(df: pd.DataFrame):
+    if not df.columns.is_unique:
+        raise ValueError("Dataset column names must be unique before profiling.")
+
     total_rows = len(df)
     total_columns = len(df.columns)
 
